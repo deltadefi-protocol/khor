@@ -1,21 +1,23 @@
 use aiken/cbor
 use aiken/collection/list
-use cardano/address.{Script, from_script}
-use cardano/assets.{PolicyId, add, from_asset_list}
+use cardano/address.{Script, from_script, from_verification_key}
+use cardano/assets.{PolicyId, add, from_asset_list, lovelace_of}
 use cardano/transaction.{
   DatumHash, InlineDatum, Mint, NoDatum, OutputReference, Transaction,
   find_input,
 }
 use cocktail.{
-  output_inline_datum, outputs_at_with_policy, outputs_with_policy,
-  policy_only_minted_token, value_length,
+  get_all_value_from, get_all_value_to, output_inline_datum, outputs_at,
+  outputs_at_with_policy, outputs_with_policy, policy_only_minted_token,
+  value_length,
 }
+use swap_utils.{process_batched_swap_intent_validation}
 use types.{
   AppOracleDatum, BurnIntent, HydraInfo, IntentRedeemer, MintIntent,
   SwapIntentDatum, VaultOracleDatum,
 }
 use utils.{
-  check_mint_redeemer_is_burn, get_app_oracle_datum, get_vault_oracle_input,
+  check_mint_redeemer_is_burn, get_app_oracle_datum, get_vault_oracle_datum,
   verify_pub_keys, verify_signatures,
 }
 
@@ -61,29 +63,22 @@ validator swap_intent(oracle_nft: PolicyId) {
       }
       (BurnIntent(indices, message, signatures), _) -> {
         // - Get the vault oracle input datum
-        let vault_oracle_input = get_vault_oracle_input(inputs, oracle_nft)
+        let vault_oracle_input_datum: VaultOracleDatum =
+          reference_inputs |> get_vault_oracle_datum(oracle_nft)
 
-        let vault_oracle_input_data: Data =
-          when vault_oracle_input.output.datum is {
-            NoDatum -> fail @"Vault oracle input does not contain any datum"
-            DatumHash(_) -> fail @"Vault oracle input datum must be inlined"
-            InlineDatum(data) -> data
-          }
-        expect vault_oracle_input_datum: VaultOracleDatum =
-          vault_oracle_input_data
-
-        let VaultOracleDatum { app_oracle, node_pub_key, .. } =
-          vault_oracle_input_datum
+        let VaultOracleDatum {
+          app_oracle,
+          node_pub_key,
+          vault_script_hash,
+          operator_key,
+          swap_charge,
+          ..
+        } = vault_oracle_input_datum
 
         // - Get the app oracle input datum
         let app_oracle_input_datum: AppOracleDatum =
           reference_inputs |> get_app_oracle_datum(app_oracle)
-        let AppOracleDatum {
-          app_deposit_request_token,
-          app_deposit_request_address,
-          hydra_info,
-          ..
-        } = app_oracle_input_datum
+        let AppOracleDatum { hydra_info, .. } = app_oracle_input_datum
         let HydraInfo { hydra_signers, .. } = hydra_info
 
         // - Verify the node public keys and signatures
@@ -91,7 +86,34 @@ validator swap_intent(oracle_nft: PolicyId) {
         let signatures_check =
           verify_signatures(node_pub_key, message, signatures)
 
-        keys_check? && signatures_check?
+        expect Some(signed_data) = cbor.deserialise(message)
+
+        let (total_intent_datum_m_value, total_swap_fee) =
+          process_batched_swap_intent_validation(
+            inputs,
+            outputs,
+            indices,
+            swap_charge,
+            policy_id,
+          )
+
+        // - Check the intent burn amount == length of batched intents
+        let intent_burn_check =
+          policy_only_minted_token(mint, policy_id, "", -list.length(indices))
+
+        // - Check the operator output value == swap_fee
+        // - Check the operator output address == operator_key
+        expect [swap_fee_output] =
+          outputs_at(outputs, from_verification_key(operator_key))
+        let swap_fee_output_check =
+          lovelace_of(swap_fee_output.value) == total_swap_fee
+
+        let value_from_vault =
+          get_all_value_from(inputs, from_script(vault_script_hash))
+
+        let value_to_vault =
+          get_all_value_to(outputs, from_script(vault_script_hash))
+        keys_check? && signatures_check? && intent_burn_check? && swap_fee_output_check?
       }
       _ -> False
     }
