@@ -16,6 +16,7 @@ pub type VaultOracleDatum {
   swap_intent_script_hash: ByteArray,
   operator_key: VerificationKeyHash,
   swap_charge: Int,
+  dd_key: VerificationKeyHash,
 }
 
 // 1 - SwapIntent

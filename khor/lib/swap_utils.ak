@@ -3,7 +3,7 @@ use aiken/collection/list
 use aiken/collection/pairs
 use aiken/crypto.{ScriptHash}
 use cardano/address.{Script}
-use cardano/assets.{Value, from_asset_list, quantity_of}
+use cardano/assets.{Value, add, merge, quantity_of, zero}
 use cardano/transaction.{Input, Output}
 use cocktail.{input_inline_datum}
 use types.{MValue, SwapIntentDatum}
@@ -56,30 +56,21 @@ pub fn subtract_m_value(left_m_value: MValue, right_m_value: MValue) -> MValue {
     |> dict.to_pairs()
 }
 
-pub fn cal_vault_change(m_value: MValue) -> Value {
-  let m_value_dict = dict.from_pairs(m_value)
-
-  let filtered_zero_m_value_dict =
-    dict.map(
-      m_value_dict,
-      fn(_policy_id, asset_name_amount) {
-        dict.from_pairs(asset_name_amount)
-          |> dict.filter(fn(_, amount) { amount > 0 })
-          |> dict.to_pairs()
-      },
-    )
-
-  let filtered_empty_m_value_dict =
-    dict.filter(
-      filtered_zero_m_value_dict,
-      fn(_policy_id, asset_name_amount_dict) {
-        !list.is_empty(asset_name_amount_dict)
-      },
-    )
-
-  filtered_empty_m_value_dict
-    |> dict.to_pairs()
-    |> from_asset_list()
+// change = value from vault - value to vault
+pub fn calculate_vault_change(from_amount: MValue, output_value: Value) -> Value {
+  pairs.foldl(
+    from_amount,
+    output_value,
+    fn(policy_id, unit, result) {
+      pairs.foldl(
+        unit,
+        result,
+        fn(asset_name, amount, nested_result) {
+          nested_result |> add(policy_id, asset_name, -amount)
+        },
+      )
+    },
+  )
 }
 
 pub fn validate_minimum_output_value(value: Value, to_amount: MValue) -> Bool {
@@ -98,48 +89,23 @@ pub fn validate_minimum_output_value(value: Value, to_amount: MValue) -> Bool {
   )
 }
 
-pub type Scott3<a, b, c, result> =
-  fn(a, b, c) -> result
-
-pub fn list_foldl3(
-  self: List<x>,
-  zero_a: a,
-  zero_b: b,
-  zero_c: c,
-  with: fn(x, a, b, c, Scott3<a, b, c, result>) -> result,
-  return: Scott3<a, b, c, result>,
-) -> result {
-  when self is {
-    [] -> return(zero_a, zero_b, zero_c)
-    [x, ..xs] -> {
-      let acc_a, acc_b, acc_c <- with(x, zero_a, zero_b, zero_c)
-      list_foldl3(xs, acc_a, acc_b, acc_c, with, return)
-    }
-  }
-}
-
-// 1. sum up the intent total m_value
-// 2. sum up swap fee todo
-// 4. cal output value to user todo
+// 1. sum up total vault change
+// 2. cal output value to user todo
 pub fn process_batched_swap_intent_validation(
   inputs: List<Input>,
   outputs: List<Output>,
   indices: List<Int>,
-  swap_charge: Int,
   script_hash: ScriptHash,
-) -> (MValue, Int) {
-  let empty_m_value: MValue = []
+) -> Value {
   let
     processed_indices,
     total_vault_change,
-    total_swap_fee,
   <-
-    list_foldl3(
+    list.foldl2(
       inputs,
       indices,
-      empty_m_value,
-      0,
-      fn(input, remaining_indices, cal_vault_change, cal_swap_fee, return) {
+      zero,
+      fn(input, remaining_indices, cal_vault_change, return) {
         when input.output.address.payment_credential is {
           Script(script) ->
             if script == script_hash {
@@ -158,16 +124,16 @@ pub fn process_batched_swap_intent_validation(
                   } = input_datum
 
                   let new_cal_vault_change =
-                    combine_m_value(
-                      cal_vault_change,
-                      subtract_m_value(from_amount, to_amount),
-                    )
+                    cal_vault_change
+                      |> merge(
+                          calculate_vault_change(from_amount, out_utxo.value),
+                        )
 
                   // - Check the output value and address
                   let output_check =
                     validate_minimum_output_value(out_utxo.value, to_amount) && out_utxo.address == account_address
                   if output_check {
-                    return(rest_of_indices, new_cal_vault_change, cal_swap_fee)
+                    return(rest_of_indices, new_cal_vault_change)
                   } else {
                     fail @"Swap intent output incorrect"
                   }
@@ -175,16 +141,16 @@ pub fn process_batched_swap_intent_validation(
               }
             } else {
               // Not the swap intent script address, skip
-              return(remaining_indices, cal_vault_change, cal_swap_fee)
+              return(remaining_indices, cal_vault_change)
             }
           _ ->
             // Not a script address, skip
-            return(remaining_indices, cal_vault_change, cal_swap_fee)
+            return(remaining_indices, cal_vault_change)
         }
       },
     )
   when processed_indices is {
-    [] -> (total_vault_change, total_swap_fee)
+    [] -> total_vault_change
     _ -> fail @"Batch swap intent UTxOs not fully processed"
   }
 }

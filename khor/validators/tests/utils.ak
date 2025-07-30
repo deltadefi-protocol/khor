@@ -14,6 +14,8 @@ pub const mock_swap_charge = 50
 
 pub const mock_operator_key = mock_pub_key_hash(10)
 
+pub const mock_dd_key = mock_pub_key_hash(11)
+
 pub const mock_vault_script_hash = mock_script_hash(10)
 
 pub const mock_swap_intent_script_hash = mock_script_hash(11)
@@ -24,6 +26,7 @@ pub const mock_vault_oracle_datum: VaultOracleDatum =
     swap_intent_script_hash: mock_swap_intent_script_hash,
     operator_key: mock_operator_key,
     swap_charge: mock_swap_charge,
+    dd_key: mock_dd_key,
   }
 
 pub const mock_burn_intent_redeemer = BurnIntent([0])

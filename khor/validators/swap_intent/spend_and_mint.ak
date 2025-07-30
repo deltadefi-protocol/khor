@@ -1,9 +1,9 @@
 use aiken/collection/list
-use cardano/address.{Script, from_script, from_verification_key}
-use cardano/assets.{PolicyId, add, from_asset_list, lovelace_of}
+use cardano/address.{Script, from_script}
+use cardano/assets.{PolicyId, add, from_asset_list, merge}
 use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
 use cocktail.{
-  get_all_value_from, get_all_value_to, output_inline_datum, outputs_at,
+  all_key_signed, get_all_value_from, get_all_value_to, output_inline_datum,
   outputs_at_with_policy, policy_only_minted_token,
 }
 use swap_utils.{process_batched_swap_intent_validation}
@@ -32,7 +32,14 @@ validator swap_intent(oracle_nft: PolicyId) {
   }
 
   mint(redeemer: IntentRedeemer, policy_id: PolicyId, self: Transaction) {
-    let Transaction { inputs, outputs, mint, reference_inputs, .. } = self
+    let Transaction {
+      inputs,
+      outputs,
+      mint,
+      reference_inputs,
+      extra_signatories,
+      ..
+    } = self
 
     when
       (
@@ -57,19 +64,15 @@ validator swap_intent(oracle_nft: PolicyId) {
         let vault_oracle_input_datum: VaultOracleDatum =
           reference_inputs |> get_vault_oracle_datum(oracle_nft)
 
-        let VaultOracleDatum {
-          vault_script_hash,
-          operator_key,
-          swap_charge,
-          ..
-        } = vault_oracle_input_datum
+        let VaultOracleDatum { vault_script_hash, operator_key, dd_key, .. } =
+          vault_oracle_input_datum
 
-        let (total_intent_datum_m_value, total_swap_fee) =
+        // change = value from vault - value to vault = decrease in vault
+        let total_vault_change =
           process_batched_swap_intent_validation(
             inputs,
             outputs,
             indices,
-            swap_charge,
             policy_id,
           )
 
@@ -77,19 +80,17 @@ validator swap_intent(oracle_nft: PolicyId) {
         let intent_burn_check =
           policy_only_minted_token(mint, policy_id, "", -list.length(indices))
 
-        // - Check the operator output value == swap_fee
-        // - Check the operator output address == operator_key
-        expect [swap_fee_output] =
-          outputs_at(outputs, from_verification_key(operator_key))
-        let swap_fee_output_check =
-          lovelace_of(swap_fee_output.value) == total_swap_fee
-
         let value_from_vault =
           get_all_value_from(inputs, from_script(vault_script_hash))
 
         let value_to_vault =
           get_all_value_to(outputs, from_script(vault_script_hash))
-        intent_burn_check? && swap_fee_output_check?
+
+        let vault_unlock_value_check =
+          value_from_vault == ( value_to_vault |> merge(total_vault_change) )
+        let signature_check =
+          all_key_signed(extra_signatories, [operator_key, dd_key])
+        intent_burn_check? && signature_check? && vault_unlock_value_check?
       }
       _ -> False
     }
