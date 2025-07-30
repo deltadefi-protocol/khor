@@ -8,10 +8,9 @@ use mocktail.{
 }
 use swap_intent/spend_and_mint as swap_intent_spend_and_mint
 use tests/utils.{
-  mock_app_oracle, mock_app_oracle_address, mock_input_oracle_datum,
-  mock_message, mock_pluggable_logic, mock_signatures, mock_swap_intent_datum,
-  mock_swap_intent_script_hash, mock_swap_m_value, mock_vault_oracle,
-  mock_vault_oracle_address, mock_vault_oracle_datum, to_mvalue,
+  mock_swap_from_m_value, mock_swap_intent_datum, mock_swap_intent_script_hash,
+  mock_vault_oracle, mock_vault_oracle_address, mock_vault_oracle_datum,
+  to_mvalue,
 }
 use types.{BurnIntent, MValue, MintIntent, VaultOracleDatum}
 
@@ -30,7 +29,7 @@ fn mock_mint_swap_intent_tx(test_case: MintDepositIntentTestCase) -> Transaction
 
   let swap_value: MValue =
     if is_value_locked_correctly {
-      mock_swap_m_value
+      mock_swap_from_m_value
     } else {
       from_asset("A", "abc", 1)
         |> add("C", "def", 10)
