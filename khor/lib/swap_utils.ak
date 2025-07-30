@@ -56,7 +56,7 @@ pub fn subtract_m_value(left_m_value: MValue, right_m_value: MValue) -> MValue {
     |> dict.to_pairs()
 }
 
-// change = value from vault - value to vault
+// change = value from vault - value to vault = decrease in vault
 pub fn calculate_vault_change(from_amount: MValue, output_value: Value) -> Value {
   pairs.foldl(
     from_amount,
@@ -89,6 +89,25 @@ pub fn validate_minimum_output_value(value: Value, to_amount: MValue) -> Bool {
   )
 }
 
+pub type Scott2<a, b, result> =
+  fn(a, b) -> result
+
+pub fn list_foldl2(
+  self: List<x>,
+  zero_a: a,
+  zero_b: b,
+  with: fn(x, a, b, Scott2<a, b, result>) -> result,
+  return: Scott2<a, b, result>,
+) -> result {
+  when self is {
+    [] -> return(zero_a, zero_b)
+    [x, ..xs] -> {
+      let acc_a, acc_b <- with(x, zero_a, zero_b)
+      list_foldl2(xs, acc_a, acc_b, with, return)
+    }
+  }
+}
+
 // 1. sum up total vault change
 // 2. cal output value to user todo
 pub fn process_batched_swap_intent_validation(
@@ -101,7 +120,7 @@ pub fn process_batched_swap_intent_validation(
     processed_indices,
     total_vault_change,
   <-
-    list.foldl2(
+    list_foldl2(
       inputs,
       indices,
       zero,
