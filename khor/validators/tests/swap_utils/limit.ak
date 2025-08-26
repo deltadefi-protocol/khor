@@ -143,7 +143,7 @@ fn mock_burn_swap_intent_tx() -> Transaction {
 }
 
 test swap_batch_limit_test() {
-  let redeemer = BurnIntent(indices)
+  let redeemer = BurnIntent
   let tx = mock_burn_swap_intent_tx()
 
   swap_intent_spend_and_mint.swap_intent.mint(

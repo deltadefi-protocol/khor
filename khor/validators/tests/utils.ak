@@ -29,7 +29,7 @@ pub const mock_vault_oracle_datum: VaultOracleDatum =
     dd_key: mock_dd_key,
   }
 
-pub const mock_burn_intent_redeemer = BurnIntent([0])
+pub const mock_burn_intent_redeemer = BurnIntent
 
 pub const mock_swap_from_m_value =
   [

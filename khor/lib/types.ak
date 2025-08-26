@@ -28,7 +28,16 @@ pub type SwapIntentDatum {
 
 pub type IntentRedeemer {
   MintIntent
-  BurnIntent(List<Int>)
+  BurnIntent
+}
+
+pub type SwapIntentWithdrawRedeemer {
+  ProcessIntent(List<Int>)
+}
+
+pub type SwapIntentPublishedRedeemer {
+  RegCert
+  UnRegCert
 }
 
 pub type MValue =

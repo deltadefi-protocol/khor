@@ -55,7 +55,7 @@ pub fn check_mint_redeemer_is_burn(
   expect mint_redeemer: IntentRedeemer = mint_redeemer_data
 
   when mint_redeemer is {
-    BurnIntent(_) -> True
+    BurnIntent -> True
     _ -> False
   }
 }

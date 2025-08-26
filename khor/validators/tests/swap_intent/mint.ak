@@ -144,8 +144,6 @@ type BurnSwapIntentTestCase {
   is_value_unlock_from_vault_correct: Bool,
 }
 
-const indices = [0, 1, 2]
-
 fn mock_burn_swap_intent_tx(test_case: BurnSwapIntentTestCase) -> Transaction {
   let BurnSwapIntentTestCase {
     is_vault_oracle_inputed,
@@ -225,7 +223,7 @@ fn mock_burn_swap_intent_tx(test_case: BurnSwapIntentTestCase) -> Transaction {
 }
 
 test s1_mint_success_burn_swap_intent() {
-  let redeemer = BurnIntent(indices)
+  let redeemer = BurnIntent
   let tx =
     mock_burn_swap_intent_tx(
       BurnSwapIntentTestCase {
@@ -245,7 +243,7 @@ test s1_mint_success_burn_swap_intent() {
 }
 
 test s1_mint_fail_burn_swap_intent_with_no_vault_oracle_input() fail {
-  let redeemer = BurnIntent(indices)
+  let redeemer = BurnIntent
   let tx =
     mock_burn_swap_intent_tx(
       BurnSwapIntentTestCase {
@@ -265,7 +263,7 @@ test s1_mint_fail_burn_swap_intent_with_no_vault_oracle_input() fail {
 }
 
 test s1_mint_fail_burn_swap_intent_with_incorrect_intent_burn_amount() {
-  let redeemer = BurnIntent(indices)
+  let redeemer = BurnIntent
   let tx =
     mock_burn_swap_intent_tx(
       BurnSwapIntentTestCase {
@@ -285,7 +283,7 @@ test s1_mint_fail_burn_swap_intent_with_incorrect_intent_burn_amount() {
 }
 
 test s1_mint_fail_burn_swap_intent_with_unsigned() {
-  let redeemer = BurnIntent(indices)
+  let redeemer = BurnIntent
   let tx =
     mock_burn_swap_intent_tx(
       BurnSwapIntentTestCase {
@@ -305,7 +303,7 @@ test s1_mint_fail_burn_swap_intent_with_unsigned() {
 }
 
 test s1_mint_fail_burn_swap_intent_with_incorrect_value_unlock_from_vault() {
-  let redeemer = BurnIntent(indices)
+  let redeemer = BurnIntent
   let tx =
     mock_burn_swap_intent_tx(
       BurnSwapIntentTestCase {

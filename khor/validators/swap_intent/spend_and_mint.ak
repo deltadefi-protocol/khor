@@ -1,5 +1,5 @@
 use aiken/collection/list
-use cardano/address.{Script, from_script}
+use cardano/address.{Credential, Script, from_script}
 use cardano/assets.{PolicyId, add, from_asset_list, merge}
 use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
 use cocktail.{
@@ -8,9 +8,13 @@ use cocktail.{
 }
 use swap_utils.{process_batched_swap_intent_validation}
 use types.{
-  BurnIntent, IntentRedeemer, MintIntent, SwapIntentDatum, VaultOracleDatum,
+  BurnIntent, IntentRedeemer, MintIntent, ProcessIntent, SwapIntentDatum,
+  SwapIntentWithdrawRedeemer, VaultOracleDatum,
 }
-use utils.{check_mint_redeemer_is_burn, get_vault_oracle_datum}
+use utils.{
+  check_mint_redeemer_is_burn, get_vault_oracle_datum,
+  withdrawal_script_validated,
+}
 
 validator swap_intent(oracle_nft: PolicyId) {
   spend(
@@ -32,14 +36,7 @@ validator swap_intent(oracle_nft: PolicyId) {
   }
 
   mint(redeemer: IntentRedeemer, policy_id: PolicyId, self: Transaction) {
-    let Transaction {
-      inputs,
-      outputs,
-      mint,
-      reference_inputs,
-      extra_signatories,
-      ..
-    } = self
+    let Transaction { outputs, mint, withdrawals, .. } = self
 
     when
       (
@@ -59,41 +56,68 @@ validator swap_intent(oracle_nft: PolicyId) {
           )
         is_value_locked? && is_mint_value_correct?
       }
-      (BurnIntent(indices), _) -> {
-        // - Get the vault oracle input datum
-        let vault_oracle_input_datum: VaultOracleDatum =
-          reference_inputs |> get_vault_oracle_datum(oracle_nft)
+      (BurnIntent, _) -> withdrawal_script_validated(withdrawals, policy_id)
 
-        let VaultOracleDatum { vault_script_hash, operator_key, dd_key, .. } =
-          vault_oracle_input_datum
-
-        // change = value from vault - value to vault = decrease in vault
-        let total_vault_change =
-          process_batched_swap_intent_validation(
-            inputs,
-            outputs,
-            indices,
-            policy_id,
-          )
-
-        // - Check the intent burn amount == length of batched intents
-        let intent_burn_check =
-          policy_only_minted_token(mint, policy_id, "", -list.length(indices))
-
-        let value_from_vault =
-          get_all_value_from(inputs, from_script(vault_script_hash))
-
-        let value_to_vault =
-          get_all_value_to(outputs, from_script(vault_script_hash))
-
-        let vault_unlock_value_check =
-          value_from_vault == ( value_to_vault |> merge(total_vault_change) )
-        let signature_check =
-          all_key_signed(extra_signatories, [operator_key, dd_key])
-        intent_burn_check? && signature_check? && vault_unlock_value_check?
-      }
       _ -> False
     }
+  }
+
+  withdraw(
+    redeemer: SwapIntentWithdrawRedeemer,
+    account: Credential,
+    self: Transaction,
+  ) {
+    let Transaction {
+      inputs,
+      outputs,
+      mint,
+      reference_inputs,
+      extra_signatories,
+      ..
+    } = self
+    let vault_oracle_input_datum: VaultOracleDatum =
+      reference_inputs |> get_vault_oracle_datum(oracle_nft)
+
+    let VaultOracleDatum { vault_script_hash, operator_key, dd_key, .. } =
+      vault_oracle_input_datum
+
+    expect Script(policy_id) = account
+    let ProcessIntent(indices) = redeemer
+    // change = value from vault - value to vault = decrease in vault
+    let total_vault_change =
+      process_batched_swap_intent_validation(
+        inputs,
+        outputs,
+        indices,
+        policy_id,
+      )
+
+    // - Check the intent burn amount == length of batched intents
+    let intent_burn_check =
+      policy_only_minted_token(mint, policy_id, "", -list.length(indices))
+
+    let value_from_vault =
+      get_all_value_from(inputs, from_script(vault_script_hash))
+
+    let value_to_vault =
+      get_all_value_to(outputs, from_script(vault_script_hash))
+
+    let vault_unlock_value_check =
+      value_from_vault == ( value_to_vault |> merge(total_vault_change) )
+    let signature_check =
+      all_key_signed(extra_signatories, [operator_key, dd_key])
+    intent_burn_check? && signature_check? && vault_unlock_value_check?
+  }
+
+  publish(_r, _c, self: Transaction) {
+    let Transaction { reference_inputs, extra_signatories, .. } = self
+
+    let vault_oracle_input_datum: VaultOracleDatum =
+      reference_inputs |> get_vault_oracle_datum(oracle_nft)
+
+    let VaultOracleDatum { operator_key, dd_key, .. } = vault_oracle_input_datum
+
+    all_key_signed(extra_signatories, [operator_key, dd_key])?
   }
 
   else(_) {
