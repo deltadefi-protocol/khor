@@ -1,20 +1,17 @@
 use aiken/collection/list
 use cardano/address.{Credential, Script, from_script}
 use cardano/assets.{PolicyId, add, from_asset_list, merge}
-use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
+use cardano/transaction.{OutputReference, Transaction, find_input}
 use cocktail.{
-  all_key_signed, get_all_value_from, get_all_value_to, output_inline_datum,
-  outputs_at_with_policy, policy_only_minted_token,
+  all_key_signed, get_all_value_from, get_all_value_to, key_signed,
+  output_inline_datum, outputs_at_with_policy, policy_only_minted_token,
 }
 use swap_utils.{process_batched_swap_intent_validation}
 use types.{
   BurnIntent, IntentRedeemer, MintIntent, ProcessIntent, SwapIntentDatum,
   SwapIntentWithdrawRedeemer, VaultOracleDatum,
 }
-use utils.{
-  check_mint_redeemer_is_burn, get_vault_oracle_datum,
-  withdrawal_script_validated,
-}
+use utils.{get_vault_oracle_datum, withdrawal_script_validated}
 
 validator swap_intent(oracle_nft: PolicyId) {
   spend(
@@ -23,16 +20,14 @@ validator swap_intent(oracle_nft: PolicyId) {
     input: OutputReference,
     self: Transaction,
   ) {
-    let Transaction { inputs, redeemers, .. } = self
+    let Transaction { inputs, withdrawals, .. } = self
 
     expect Some(own_input) =
       inputs
         |> find_input(input)
 
     expect Script(own_hash) = own_input.output.address.payment_credential
-    let mint_purpose = Mint(own_hash)
-
-    check_mint_redeemer_is_burn(mint_purpose, redeemers)?
+    withdrawal_script_validated(withdrawals, own_hash)
   }
 
   mint(redeemer: IntentRedeemer, policy_id: PolicyId, self: Transaction) {
@@ -115,9 +110,9 @@ validator swap_intent(oracle_nft: PolicyId) {
     let vault_oracle_input_datum: VaultOracleDatum =
       reference_inputs |> get_vault_oracle_datum(oracle_nft)
 
-    let VaultOracleDatum { operator_key, dd_key, .. } = vault_oracle_input_datum
+    let VaultOracleDatum { operator_key, .. } = vault_oracle_input_datum
 
-    all_key_signed(extra_signatories, [operator_key, dd_key])?
+    key_signed(extra_signatories, operator_key)?
   }
 
   else(_) {

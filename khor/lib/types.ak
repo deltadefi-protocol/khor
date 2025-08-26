@@ -35,10 +35,5 @@ pub type SwapIntentWithdrawRedeemer {
   ProcessIntent(List<Int>)
 }
 
-pub type SwapIntentPublishedRedeemer {
-  RegCert
-  UnRegCert
-}
-
 pub type MValue =
   Pairs<PolicyId, Pairs<AssetName, Int>>

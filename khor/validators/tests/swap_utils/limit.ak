@@ -1,4 +1,4 @@
-use cardano/address.{from_script}
+use cardano/address.{Script, from_script}
 use cardano/assets.{add, from_asset, from_asset_list, merge}
 use cardano/transaction.{Input, NoDatum, Transaction}
 use mocktail.{
@@ -6,7 +6,7 @@ use mocktail.{
   mock_utxo_ref, mocktail_tx, ref_tx_in, ref_tx_in_inline_datum,
 }
 use mocktail/virgin_outputs.{mock_output}
-use swap_intent/spend_and_mint as swap_intent_spend_and_mint
+use swap_intent/spend_mint_withdraw_publish as swap_intent_spend_mint_withdraw_publish
 use tests/swap_utils/process_batch.{
   intent_input_c, intent_output_c, intent_output_value_c, m_value_c_from,
 }
@@ -15,7 +15,7 @@ use tests/utils.{
   mock_vault_oracle, mock_vault_oracle_address, mock_vault_oracle_datum,
   mock_vault_script_hash,
 }
-use types.{BurnIntent}
+use types.{ProcessIntent}
 
 //todo
 const indices =
@@ -143,13 +143,13 @@ fn mock_burn_swap_intent_tx() -> Transaction {
 }
 
 test swap_batch_limit_test() {
-  let redeemer = BurnIntent
+  let redeemer = ProcessIntent(indices)
   let tx = mock_burn_swap_intent_tx()
 
-  swap_intent_spend_and_mint.swap_intent.mint(
+  swap_intent_spend_mint_withdraw_publish.swap_intent.withdraw(
     mock_vault_oracle,
     redeemer,
-    mock_swap_intent_script_hash,
+    Script(mock_swap_intent_script_hash),
     tx,
   )
 }
