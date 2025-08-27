@@ -3,7 +3,7 @@ use cardano/transaction.{Transaction}
 use cocktail.{key_signed}
 use types.{VaultOracleDatum}
 
-validator swap_intent(_oracle_nft: PolicyId) {
+validator swap_oracle(_oracle_nft: PolicyId) {
   spend(datum_opt: Option<VaultOracleDatum>, _r, _i, self: Transaction) {
     let Transaction { extra_signatories, .. } = self
 
