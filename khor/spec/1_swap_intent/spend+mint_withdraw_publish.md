@@ -7,8 +7,8 @@
 ## Datum
 
 - `account_address`: Address
-- `amount`: `MValue` - marking the swap value
-- `swap_pair`: (PolicyId, AssetName)
+- `from_amount`: `MValue`
+- `to_amount`: `MValue`
 
 ## User Action - Spend
 
@@ -34,7 +34,6 @@
    - `SwapIntent` input datum is correspond to user output amount
    - `SwapIntent` input datum is correspond to vault
    - `vault` change = `vault` input - batched swaped amount, output back to `vault` address
-   - output fee to `operator`
    - oracle input with datum
    - verify signatures and keys
 
