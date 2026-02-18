@@ -1,4 +1,3 @@
-use aiken/collection/dict
 use aiken/collection/list
 use aiken/collection/pairs
 use aiken/crypto.{ScriptHash}
@@ -7,54 +6,6 @@ use cardano/assets.{Value, add, merge, quantity_of, zero}
 use cardano/transaction.{Input, Output}
 use cocktail.{input_inline_datum}
 use types.{MValue, SwapIntentDatum}
-
-// attention: AssetName sorted in ascending lexicographic
-pub fn combine_m_value(left_m_value: MValue, right_m_value: MValue) -> MValue {
-  let left_dict = dict.from_pairs(left_m_value)
-  let right_dict = dict.from_pairs(right_m_value)
-
-  dict.union_with(
-    left_dict,
-    right_dict,
-    fn(_k, v1, v2) {
-      let v1_dict = dict.from_pairs(v1)
-      let v2_dict = dict.from_pairs(v2)
-      let all =
-        dict.union_with(
-          v1_dict,
-          v2_dict,
-          fn(_k, v_v_1, v_v_2) { Some(v_v_1 + v_v_2) },
-        )
-          |> dict.to_pairs()
-      Some(all)
-    },
-  )
-    |> dict.to_pairs()
-}
-
-// attention: AssetName sorted in ascending lexicographic
-pub fn subtract_m_value(left_m_value: MValue, right_m_value: MValue) -> MValue {
-  let left_dict = dict.from_pairs(left_m_value)
-  let right_dict = dict.from_pairs(right_m_value)
-
-  dict.union_with(
-    left_dict,
-    right_dict,
-    fn(_k, v1, v2) {
-      let v1_dict = dict.from_pairs(v1)
-      let v2_dict = dict.from_pairs(v2)
-      let all =
-        dict.union_with(
-          v1_dict,
-          v2_dict,
-          fn(_k, v_v_1, v_v_2) { Some(v_v_1 - v_v_2) },
-        )
-          |> dict.to_pairs()
-      Some(all)
-    },
-  )
-    |> dict.to_pairs()
-}
 
 // change = value from vault - value to vault = decrease in vault
 pub fn calculate_vault_change(from_amount: MValue, output_value: Value) -> Value {
