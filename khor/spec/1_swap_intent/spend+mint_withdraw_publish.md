@@ -13,32 +13,34 @@
 ## User Action - Spend
 
 1. Process Intent
-
-   - Withdrawal Script own script_hash is validated
+   - Withdrawal script with own `script_hash` is validated in `withdrawals`
 
 ## User Action - Mint
 
-1. Mint - Redeemer `RMint`
+1. Mint - Redeemer `MintIntent`
+   - Exactly 1 intent token is minted under own `policy_id` with asset name `""`
+   - Exactly 1 output at own script address carrying own `policy_id`
+   - That output's value is exactly `from_asset_list(from_amount) + 1 intent_token`
+   - That output carries an inline `SwapIntentDatum`
 
-   - The net swap value sent to `SwapIntent` address is equal to the datum value of `SwapIntent`
-
-2. Burn - Redeemer `RBurn (List<Int>, ByteArray, List<ByteArray>)`
-
-   - Withdrawal Script own policy_id is validated
+2. Burn - Redeemer `BurnIntent`
+   - Withdrawal script with own `policy_id` is validated in `withdrawals`
 
 ## User Action - Withdraw
 
 1. Withdraw - Redeemer `ProcessIntent(List<Int>)`
-
-   - `SwapIntent` is burnt with total batched amount
-   - `SwapIntent` input datum is correspond to user output amount
-   - `SwapIntent` input datum is correspond to vault
-   - `vault` change = `vault` input - batched swaped amount, output back to `vault` address
-   - oracle input with datum
-   - verify signatures and keys
+   - Oracle `VaultOracleDatum` is read from reference input identified by `oracle_nft`
+   - For each swap intent input, consuming one index at a time:
+     - `outputs[index].address` == `account_address` from datum
+     - `outputs[index].value` >= `to_amount` (per asset)
+     - Accumulate `vault_change` += `outputs[index].value` − `from_amount`
+   - Fail if more swap intent inputs than indices, or leftover indices remain after all inputs
+   - Intent tokens burned == `−length(indices)`
+   - `value_from_vault` == `value_to_vault` + `total_vault_change`
+   - Both `operator_key` and `dd_key` from `VaultOracleDatum` must sign
 
 ## User Action - Publish
 
 1. Process Intent
-
-   - Operator's key is signed
+   - Oracle `VaultOracleDatum` is read from reference input identified by `oracle_nft`
+   - `operator_key` from `VaultOracleDatum` must sign
