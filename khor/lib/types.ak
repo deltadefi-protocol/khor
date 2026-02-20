@@ -1,5 +1,5 @@
 use aiken/crypto.{VerificationKeyHash}
-use cardano/address.{Address}
+use cardano/address.{Address, Credential}
 use cardano/assets.{AssetName, PolicyId}
 
 // Mint Redeemer
@@ -13,7 +13,7 @@ pub type MintPolarity {
 
 pub type VaultOracleDatum {
   vault_oracle_nft: ByteArray,
-  vault_script_hash: ByteArray,
+  vault_script_hash: Credential,
   swap_intent_script_hash: ByteArray,
   operator_key: VerificationKeyHash,
   dd_key: VerificationKeyHash,
@@ -24,11 +24,13 @@ pub type SwapIntentDatum {
   account_address: Address,
   from_amount: MValue,
   to_amount: MValue,
+  created_at: Int,
 }
 
 pub type IntentRedeemer {
   MintIntent
   BurnIntent
+  CancelIntent
 }
 
 pub type SwapIntentWithdrawRedeemer {

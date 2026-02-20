@@ -1,4 +1,4 @@
-use cardano/address.{Script, from_script}
+use cardano/address.{Address, Script}
 use cardano/assets.{add, from_asset, from_asset_list, merge}
 use cardano/transaction.{Input, NoDatum, Transaction}
 use mocktail.{
@@ -54,7 +54,10 @@ fn mock_withdraw_swap_intent_tx(
     Input {
       output_reference: mock_utxo_ref(10, 0),
       output: mock_output(
-        from_script(mock_vault_script_hash),
+        Address {
+          payment_credential: mock_vault_script_hash,
+          stake_credential: None,
+        },
         intent_output_value_a
           |> merge(intent_output_value_b)
           |> merge(intent_output_value_c),
@@ -66,7 +69,10 @@ fn mock_withdraw_swap_intent_tx(
   let vault_output =
     if is_value_unlock_from_vault_correct {
       mock_output(
-        from_script(mock_vault_script_hash),
+        Address {
+          payment_credential: mock_vault_script_hash,
+          stake_credential: None,
+        },
         from_asset_list(m_value_a_from)
           |> merge(from_asset_list(m_value_b_from))
           |> merge(from_asset_list(m_value_c_from)),
@@ -75,7 +81,10 @@ fn mock_withdraw_swap_intent_tx(
       )
     } else {
       mock_output(
-        from_script(mock_vault_script_hash),
+        Address {
+          payment_credential: mock_vault_script_hash,
+          stake_credential: None,
+        },
         from_asset_list(m_value_a_from)
           |> merge(from_asset_list(m_value_c_from))
           |> merge(from_asset_list(m_value_c_from)),

@@ -2,7 +2,8 @@ use aiken/cbor
 use cardano/address.{from_script}
 use cardano/assets.{Value}
 use mocktail.{
-  mock_policy_id, mock_pub_key_address, mock_pub_key_hash, mock_script_hash,
+  mock_policy_id, mock_pub_key_address, mock_pub_key_hash,
+  mock_script_credential, mock_script_hash,
 }
 use types.{BurnIntent, MValue, SwapIntentDatum, VaultOracleDatum}
 
@@ -16,7 +17,7 @@ pub const mock_dd_key = mock_pub_key_hash(11)
 
 pub const mock_vault_oracle_nft = mock_script_hash(0)
 
-pub const mock_vault_script_hash = mock_script_hash(10)
+pub const mock_vault_script_hash = mock_script_credential(10)
 
 pub const mock_swap_intent_script_hash = mock_script_hash(11)
 
@@ -41,11 +42,14 @@ pub const mock_swap_from_m_value =
 
 pub const mock_swap_to_m_value = [Pair(#"", [Pair(#"", 1000000)])]
 
+pub const mock_account_address = mock_pub_key_address(0, None)
+
 pub const mock_swap_intent_datum =
   SwapIntentDatum {
-    account_address: mock_pub_key_address(0, None),
+    account_address: mock_account_address,
     from_amount: mock_swap_from_m_value,
     to_amount: mock_swap_to_m_value,
+    created_at: 0,
   }
 
 pub fn to_mvalue(value: Value) -> MValue {
@@ -54,3 +58,5 @@ pub fn to_mvalue(value: Value) -> MValue {
   expect mvalue: MValue = mvalue_raw
   mvalue
 }
+
+pub const mock_created_at = 0

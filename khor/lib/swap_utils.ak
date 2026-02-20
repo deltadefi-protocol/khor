@@ -60,7 +60,7 @@ pub fn list_foldl2(
 }
 
 // 1. sum up total vault change
-// 2. cal output value to user todo
+// 2. cal output value to user
 pub fn process_batched_swap_intent_validation(
   inputs: List<Input>,
   outputs: List<Output>,
@@ -91,6 +91,7 @@ pub fn process_batched_swap_intent_validation(
                     account_address,
                     from_amount,
                     to_amount,
+                    ..
                   } = input_datum
 
                   let new_cal_vault_change =

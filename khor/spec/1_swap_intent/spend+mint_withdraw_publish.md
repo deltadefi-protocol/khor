@@ -26,6 +26,12 @@
 2. Burn - Redeemer `BurnIntent`
    - Withdrawal script with own `policy_id` is validated in `withdrawals`
 
+3. Burn - Redeemer `CancelIntent`
+   - time >= created_at + 10mins (600)
+   - either:
+     - signed by account_address
+     - input value send back to account_address
+
 ## User Action - Withdraw
 
 1. Withdraw - Redeemer `ProcessIntent(List<Int>)`
@@ -33,10 +39,10 @@
    - For each swap intent input, consuming one index at a time:
      - `outputs[index].address` == `account_address` from datum
      - `outputs[index].value` >= `to_amount` (per asset)
-     - Accumulate `vault_change` += `outputs[index].value` − `from_amount`
+     - Accumulate `vault_net_outflow` += `outputs[index].value` − `from_amount`
    - Fail if more swap intent inputs than indices, or leftover indices remain after all inputs
    - Intent tokens burned == `−length(indices)`
-   - `value_from_vault` == `value_to_vault` + `total_vault_change`
+   - `value_from_vault` == `value_to_vault` + `vault_net_outflow` + `fee`
    - Both `operator_key` and `dd_key` from `VaultOracleDatum` must sign
 
 ## User Action - Publish
