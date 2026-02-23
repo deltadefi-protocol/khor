@@ -1,4 +1,4 @@
-import blueprint from "../../../onchain/plutus.json";
+import blueprint from "./plutus.json";
 
 import {
   PolicyId,

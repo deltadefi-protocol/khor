@@ -18,6 +18,7 @@
     "dist/**"
   ],
   "scripts": {
+    "prebuild": "cp ../onchain/plutus.json src/lib/plutus.json",
     "build": "tsup src/index.ts --format esm,cjs --dts",
     "dev": "tsup src/index.ts --format esm,cjs --watch --dts",
     "clean": "rm -rf .turbo && rm -rf dist && rm -rf node_modules",
