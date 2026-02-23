@@ -5,43 +5,24 @@ export type Network = "preprod" | "mainnet";
 export interface KhorConfig {
   network: Network;
   networkId: 0 | 1;
+  oracleNftPolicyId: string;
   refScripts: {
     swapIntent: TxInput;
   };
 }
 
-// Preprod config - TODO: update with actual deployed ref script locations
-const preprodConfig: KhorConfig = {
-  network: "preprod",
-  networkId: 0,
+export const createConfig = (params: {
+  network: Network;
+  oracleNftPolicyId: string;
   refScripts: {
-    swapIntent: {
-      txHash: "",
-      outputIndex: 0,
-    },
-  },
-};
-
-// Mainnet config - TODO: update with actual deployed ref script locations
-const mainnetConfig: KhorConfig = {
-  network: "mainnet",
-  networkId: 1,
-  refScripts: {
-    swapIntent: {
-      txHash: "",
-      outputIndex: 0,
-    },
-  },
-};
-
-export const getConfig = (network: Network): KhorConfig => {
-  switch (network) {
-    case "preprod":
-      return preprodConfig;
-    case "mainnet":
-      return mainnetConfig;
-  }
-};
+    swapIntent: TxInput;
+  };
+}): KhorConfig => ({
+  network: params.network,
+  networkId: params.network === "mainnet" ? 1 : 0,
+  oracleNftPolicyId: params.oracleNftPolicyId,
+  refScripts: params.refScripts,
+});
 
 export const minUtxos = {
   swapIntent: "2000000",

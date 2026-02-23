@@ -21,7 +21,6 @@ import {
 } from "@meshsdk/core";
 
 const version = "V3";
-const networkId = 0; // 0 for testnet; 1 for mainnet
 // Every spending validator would compile into an address with an staking key hash
 // Recommend replace with your own stake key / script hash
 const stakeKeyHash = "";
@@ -30,7 +29,7 @@ const isStakeScriptCredential = false;
 export class SwapOracleSpendBlueprint extends SpendingBlueprint {
   compiledCode: string;
 
-  constructor(params: [PolicyId]) {
+  constructor(networkId: 0 | 1, params: [PolicyId]) {
     const compiledCode = blueprint.validators[0]!.compiledCode;
     super(version, networkId, stakeKeyHash, isStakeScriptCredential);
     this.compiledCode = compiledCode;
@@ -58,7 +57,7 @@ export class OracleNftMintBlueprint extends MintingBlueprint {
 export class SwapIntentSpendBlueprint extends SpendingBlueprint {
   compiledCode: string;
 
-  constructor(params: [PolicyId]) {
+  constructor(networkId: 0 | 1, params: [PolicyId]) {
     const compiledCode = blueprint.validators[4]!.compiledCode;
     super(version, networkId, stakeKeyHash, isStakeScriptCredential);
     this.compiledCode = compiledCode;
@@ -86,7 +85,7 @@ export class SwapIntentMintBlueprint extends MintingBlueprint {
 export class SwapIntentWithdrawBlueprint extends WithdrawalBlueprint {
   compiledCode: string;
 
-  constructor(params: [PolicyId]) {
+  constructor(networkId: 0 | 1, params: [PolicyId]) {
     const compiledCode = blueprint.validators[6]!.compiledCode;
     super(version, networkId);
     this.compiledCode = compiledCode;
@@ -99,7 +98,7 @@ export class SwapIntentWithdrawBlueprint extends WithdrawalBlueprint {
 export class SwapIntentPublishBlueprint extends WithdrawalBlueprint {
   compiledCode: string;
 
-  constructor(params: [PolicyId]) {
+  constructor(networkId: 0 | 1, params: [PolicyId]) {
     const compiledCode = blueprint.validators[7]!.compiledCode;
     super(version, networkId);
     this.compiledCode = compiledCode;
