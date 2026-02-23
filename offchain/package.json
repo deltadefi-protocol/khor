@@ -1,0 +1,53 @@
+{
+  "name": "@deltadefi-protocol/khor",
+  "version": "1.0.0",
+  "description": "Khor transaction builder for Cardano L1 arbitrage swap protocol",
+  "main": "./dist/index.cjs",
+  "browser": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "dev": "tsup src/index.ts --format esm,cjs --watch --dts",
+    "clean": "rm -rf .turbo && rm -rf dist && rm -rf node_modules",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deltadefi-protocol/khor.git"
+  },
+  "keywords": [
+    "Cardano",
+    "Plutus",
+    "DeFi",
+    "Swap",
+    "Aiken"
+  ],
+  "author": "DeltaDeFi",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@meshsdk/core": "1.9.0-beta.95",
+    "@meshsdk/core-csl": "1.9.0-beta.95",
+    "@meshsdk/core-cst": "1.9.0-beta.95"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "ts-node": "^10.9.2",
+    "tsup": "^8.0.2",
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
