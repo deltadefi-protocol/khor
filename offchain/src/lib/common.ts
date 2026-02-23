@@ -1,4 +1,9 @@
-import { MeshTxBuilder, UTxO, MeshTxBuilderOptions } from "@meshsdk/core";
+import {
+  MeshTxBuilder,
+  UTxO,
+  MeshTxBuilderOptions,
+  TxInput,
+} from "@meshsdk/core";
 import { OfflineEvaluator } from "@meshsdk/core-csl";
 import { KhorConfig } from "./constant";
 
@@ -10,7 +15,7 @@ export interface TxParams {
 
 export interface TxComplete {
   txHex: string;
-  spentUtxos: UTxO[];
+  spentUtxos: TxInput[];
 }
 
 export class KhorTxBuilder {
