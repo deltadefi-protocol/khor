@@ -3,8 +3,8 @@ import blueprint from "./plutus.json";
 import {
   PolicyId,
   ConStr0,
-  ByteString,
   Credential,
+  ByteString,
   PubKeyHash,
   SpendingBlueprint,
   OutputReference,
@@ -111,7 +111,7 @@ export class SwapIntentPublishBlueprint extends WithdrawalBlueprint {
 export type Data = any;
 
 export type VaultOracleDatum = ConStr0<
-  [ByteString, Credential, ByteString, PubKeyHash, PubKeyHash]
+  [Credential, ByteString, PubKeyHash, PubKeyHash]
 >;
 
 export type MintPolarity = RMint | RBurn;

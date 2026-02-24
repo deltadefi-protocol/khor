@@ -12,7 +12,6 @@ pub type MintPolarity {
 // 0 - VaultOracle
 
 pub type VaultOracleDatum {
-  vault_oracle_nft: ByteArray,
   vault_script_hash: Credential,
   swap_intent_script_hash: ByteArray,
   operator_key: VerificationKeyHash,

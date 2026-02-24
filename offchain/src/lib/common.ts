@@ -26,6 +26,10 @@ export class KhorTxBuilder {
       verbose: true,
     };
 
+    if (fetcher) {
+      txBuilderConfig.fetcher = fetcher;
+    }
+
     if (evaluateTx && fetcher) {
       const evaluator = new OfflineEvaluator(fetcher, this.config.network);
       txBuilderConfig.evaluator = evaluator;

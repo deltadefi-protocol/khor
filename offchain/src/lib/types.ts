@@ -24,7 +24,6 @@ import {
 import { addrBech32ToPlutusDataObj, parseDatumCbor } from "@meshsdk/core-csl";
 
 export interface VaultOracleInfo {
-  vaultOracleNft: string;
   vaultScriptHash: string;
   isVaultScript: boolean;
   swapIntentScriptHash: string;
@@ -41,7 +40,6 @@ export interface SwapIntentInfo {
 
 export const vaultOracleDatum = (info: VaultOracleInfo): VaultOracleDatum =>
   conStr0([
-    byteString(info.vaultOracleNft),
     credential(info.vaultScriptHash, info.isVaultScript),
     byteString(info.swapIntentScriptHash),
     byteString(info.operatorKey),
@@ -96,16 +94,14 @@ export const parseVaultOracleDatum = (utxo: UTxO): VaultOracleInfo | null => {
   try {
     const datum = parseDatumCbor(utxo.output.plutusData) as VaultOracleDatum;
 
-    const vaultOracleNft = datum.fields[0].bytes;
-    const vaultCredData = datum.fields[1];
+    const vaultCredData = datum.fields[0];
     const isVaultScript = vaultCredData.constructor === 1;
     const vaultScriptHash = vaultCredData.fields[0].bytes;
-    const swapIntentScriptHash = datum.fields[2].bytes;
-    const operatorKey = datum.fields[3].bytes;
-    const ddKey = datum.fields[4].bytes;
+    const swapIntentScriptHash = datum.fields[1].bytes;
+    const operatorKey = datum.fields[2].bytes;
+    const ddKey = datum.fields[3].bytes;
 
     return {
-      vaultOracleNft,
       vaultScriptHash,
       isVaultScript,
       swapIntentScriptHash,

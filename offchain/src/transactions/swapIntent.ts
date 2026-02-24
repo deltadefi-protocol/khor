@@ -58,8 +58,12 @@ const selectUtxosForWithdrawal = (
   // Prioritize UTxOs containing needed assets
   const neededUnits = new Set(targetAssets.map((a) => a.unit));
   const sortedUtxos = [...availableUtxos].sort((a, b) => {
-    const aScore = a.output.amount.filter((x) => neededUnits.has(x.unit)).length;
-    const bScore = b.output.amount.filter((x) => neededUnits.has(x.unit)).length;
+    const aScore = a.output.amount.filter((x) =>
+      neededUnits.has(x.unit),
+    ).length;
+    const bScore = b.output.amount.filter((x) =>
+      neededUnits.has(x.unit),
+    ).length;
     return bScore - aScore;
   });
 
@@ -177,7 +181,7 @@ export class SwapIntentTx extends KhorTxBuilder {
       )
       .mintRedeemerValue(mintIntent(), "JSON")
       .txOut(this.swapIntentAddress, outputAssets)
-      .txOutInlineDatumValue(datum);
+      .txOutInlineDatumValue(datum, "JSON");
 
     const txHex = await txBuilder.complete();
 
@@ -202,6 +206,11 @@ export class SwapIntentTx extends KhorTxBuilder {
     if (!intentInfo) {
       throw new Error("Invalid swap intent UTxO");
     }
+
+    // Calculate return amount (locked fromAmount minus the burned token)
+    const returnAssets = intentUtxo.output.amount.filter(
+      (a) => a.unit !== this.swapIntentPolicyId,
+    );
 
     txBuilder
       .readOnlyTxInReference(
@@ -229,6 +238,8 @@ export class SwapIntentTx extends KhorTxBuilder {
         this.swapIntentMint.hash,
       )
       .mintRedeemerValue(burnIntent(), "JSON")
+      // Send locked funds back to user's account address
+      .txOut(intentInfo.accountAddress, returnAssets)
       .invalidBefore(intentInfo.createdAt + 600); // 10 minutes after creation
 
     const txHex = await txBuilder.complete();
@@ -286,7 +297,10 @@ export class SwapIntentTx extends KhorTxBuilder {
     const vaultAddressObj = oracleInfo.isVaultScript
       ? scriptAddress(oracleInfo.vaultScriptHash)
       : pubKeyAddress(oracleInfo.vaultScriptHash);
-    const vaultAddress = serializeAddressObj(vaultAddressObj, this.config.networkId);
+    const vaultAddress = serializeAddressObj(
+      vaultAddressObj,
+      this.config.networkId,
+    );
 
     txBuilder.readOnlyTxInReference(
       params.oracleUtxo.input.txHash,
@@ -357,7 +371,9 @@ export class SwapIntentTx extends KhorTxBuilder {
         (this.swapIntentWithdraw.cbor.length / 2).toString(),
         this.swapIntentWithdraw.hash,
       )
-      .withdrawalRedeemerValue(processIntent(userOutputIndices), "JSON");
+      .withdrawalRedeemerValue(processIntent(userOutputIndices), "JSON")
+      .requiredSignerHash(oracleInfo.ddKey)
+      .requiredSignerHash(oracleInfo.operatorKey);
 
     const txHex = await txBuilder.complete();
 
