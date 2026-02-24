@@ -57,6 +57,7 @@ export class SetupTx extends KhorTxBuilder {
         params.paramUtxo.input.outputIndex,
         params.paramUtxo.output.amount,
         params.paramUtxo.output.address,
+        0,
       )
       // Mint oracle NFT
       .mintPlutusScriptV3()

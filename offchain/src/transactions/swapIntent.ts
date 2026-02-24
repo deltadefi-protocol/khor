@@ -170,6 +170,7 @@ export class SwapIntentTx extends KhorTxBuilder {
       .readOnlyTxInReference(
         params.oracleUtxo.input.txHash,
         params.oracleUtxo.input.outputIndex,
+        0,
       )
       .mintPlutusScriptV3()
       .mint("1", this.swapIntentPolicyId, "")
@@ -216,10 +217,17 @@ export class SwapIntentTx extends KhorTxBuilder {
       .readOnlyTxInReference(
         params.oracleUtxo.input.txHash,
         params.oracleUtxo.input.outputIndex,
+        0,
       )
       // Spend the swap intent UTxO
       .spendingPlutusScriptV3()
-      .txIn(intentUtxo.input.txHash, intentUtxo.input.outputIndex)
+      .txIn(
+        intentUtxo.input.txHash,
+        intentUtxo.input.outputIndex,
+        intentUtxo.output.amount,
+        intentUtxo.output.address,
+        0,
+      )
       .txInInlineDatumPresent()
       .txInRedeemerValue(cancelIntent(), "JSON")
       .spendingTxInReference(
@@ -314,7 +322,13 @@ export class SwapIntentTx extends KhorTxBuilder {
     } else {
       // Pubkey vault - regular inputs (only selected UTxOs)
       for (const vaultUtxo of selectedUtxos) {
-        txBuilder.txIn(vaultUtxo.input.txHash, vaultUtxo.input.outputIndex);
+        txBuilder.txIn(
+          vaultUtxo.input.txHash,
+          vaultUtxo.input.outputIndex,
+          vaultUtxo.output.amount,
+          vaultUtxo.output.address,
+          0,
+        );
       }
     }
 
@@ -322,7 +336,13 @@ export class SwapIntentTx extends KhorTxBuilder {
     for (const intentUtxo of params.swapIntentUtxos) {
       txBuilder
         .spendingPlutusScriptV3()
-        .txIn(intentUtxo.input.txHash, intentUtxo.input.outputIndex)
+        .txIn(
+          intentUtxo.input.txHash,
+          intentUtxo.input.outputIndex,
+          intentUtxo.output.amount,
+          intentUtxo.output.address,
+          0,
+        )
         .txInInlineDatumPresent()
         .txInRedeemerValue(burnIntent(), "JSON")
         .spendingTxInReference(
