@@ -22,14 +22,19 @@ validator swap_intent(oracle_nft: PolicyId) {
     input: OutputReference,
     self: Transaction,
   ) {
-    let Transaction { inputs, withdrawals, .. } = self
+    let Transaction { inputs, withdrawals, mint, .. } = self
 
     expect Some(own_input) =
       inputs
         |> find_input(input)
 
     expect Script(own_hash) = own_input.output.address.payment_credential
-    withdrawal_script_validated(withdrawals, own_hash)
+    withdrawal_script_validated(withdrawals, own_hash) || policy_only_minted_token(
+      mint,
+      own_hash,
+      "",
+      1,
+    )
   }
 
   mint(redeemer: IntentRedeemer, policy_id: PolicyId, self: Transaction) {
