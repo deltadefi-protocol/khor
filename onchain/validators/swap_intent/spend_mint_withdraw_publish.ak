@@ -131,8 +131,8 @@ validator swap_intent(oracle_nft: PolicyId) {
 
     expect Script(policy_id) = account
     let ProcessIntent(indices) = redeemer
-    // change = value from vault - value to vault = decrease in vault
-    let total_vault_change =
+    // change = value from operator - value to operator = decrease in operator
+    let total_operator_change =
       process_batched_swap_intent_validation(
         inputs,
         outputs,
@@ -144,17 +144,17 @@ validator swap_intent(oracle_nft: PolicyId) {
     let intent_burn_check =
       policy_only_minted_token(mint, policy_id, "", -list.length(indices))
 
-    let value_from_vault = get_all_value_from_cred(inputs, operator_cred)
+    let value_from_operator = get_all_value_from_cred(inputs, operator_cred)
 
-    let value_to_vault = get_all_value_to_cred(outputs, operator_cred)
+    let value_to_operator = get_all_value_to_cred(outputs, operator_cred)
 
-    let vault_unlock_value_check =
-      value_from_vault == (
-        value_to_vault |> merge(total_vault_change) |> add("", "", fee)
+    let operator_unlock_value_check =
+      value_from_operator == (
+        value_to_operator |> merge(total_operator_change) |> add("", "", fee)
       )
     let signature_check =
       all_key_signed(extra_signatories, [operator_key, dd_key])
-    intent_burn_check? && signature_check? && vault_unlock_value_check?
+    intent_burn_check? && signature_check? && operator_unlock_value_check?
   }
 
   publish(_r, _c, self: Transaction) {
