@@ -25,7 +25,7 @@ import {
   parseSwapIntentDatum,
   parseVaultOracleDatum,
 } from "../lib/types";
-import { csl } from "@meshsdk/core-csl";
+import { csl, OfflineEvaluator } from "@meshsdk/core-csl";
 
 const extractSpentUtxos = (txHex: string): TxInput[] => {
   const cslTx = csl.Transaction.from_hex(txHex);
@@ -156,7 +156,7 @@ export class SwapIntentTx extends KhorTxBuilder {
   ): Promise<TxComplete> => {
     const txBuilder = this.newValidationTx(params, fetcher);
     const networkName = this.config.networkId === 0 ? "preprod" : "mainnet";
-    const slot = resolveSlotNo(networkName, params.createdAt + 600); // 10 minutes after creation
+    const slot = resolveSlotNo(networkName, params.createdAt * 1000 + 600); // 10 minutes after creation
 
     const datum = swapIntentDatum({
       accountAddress: params.accountAddress,
@@ -167,7 +167,9 @@ export class SwapIntentTx extends KhorTxBuilder {
     });
 
     const outputValue = MeshValue.fromAssets(params.fromAmount);
-    outputValue.addAssets([{ unit: "", quantity: params.deposit.toString() }]); // Add deposit to output value
+    outputValue.addAssets([
+      { unit: "lovelace", quantity: params.deposit.toString() },
+    ]); // Add deposit to output value
     outputValue.addAssets([{ unit: this.swapIntentPolicyId, quantity: "1" }]);
 
     txBuilder
@@ -269,16 +271,21 @@ export class SwapIntentTx extends KhorTxBuilder {
     params: ProcessSwapIntentsParams,
     fetcher?: any,
   ): Promise<TxComplete> => {
-    const txBuilder = this.newValidationTx(params, fetcher);
-
     // Parse oracle datum to check if vault is a script
     const oracleInfo = parseVaultOracleDatum(params.oracleUtxo);
     if (!oracleInfo) {
       throw new Error("Invalid oracle UTxO");
     }
 
-    // Parse all intent datums for user outputs
-    const intentInfos = params.swapIntentUtxos.map((utxo) => {
+    // Sort swap intent UTxOs by txHash and outputIndex (ascending) to match Cardano input ordering
+    const sortedSwapIntentUtxos = [...params.swapIntentUtxos].sort((a, b) => {
+      const txHashCompare = a.input.txHash.localeCompare(b.input.txHash);
+      if (txHashCompare !== 0) return txHashCompare;
+      return a.input.outputIndex - b.input.outputIndex;
+    });
+
+    // Parse all intent datums for user outputs (in sorted order)
+    const intentInfos = sortedSwapIntentUtxos.map((utxo) => {
       const info = parseSwapIntentDatum(utxo);
       if (!info) {
         throw new Error("Invalid swap intent UTxO");
@@ -305,105 +312,144 @@ export class SwapIntentTx extends KhorTxBuilder {
       .addAssets(totalFromAmount.toAssets())
       .toAssets();
 
-    // Get vault address from oracle datum
-    const vaultAddressObj = oracleInfo.isVaultScript
-      ? scriptAddress(oracleInfo.vaultScriptHash)
-      : pubKeyAddress(oracleInfo.vaultScriptHash);
-    const vaultAddress = serializeAddressObj(
-      vaultAddressObj,
-      this.config.networkId,
-    );
-
-    txBuilder.readOnlyTxInReference(
-      params.oracleUtxo.input.txHash,
-      params.oracleUtxo.input.outputIndex,
-    );
-
-    // Add vault inputs - handle script vs pubkey vault
-    if (oracleInfo.isVaultScript) {
-      // Script vault inputs
-      throw new Error("Script vault not yet implemented");
-    } else {
-      // Pubkey vault - regular inputs (only selected UTxOs)
-      for (const vaultUtxo of selectedUtxos) {
-        txBuilder.txIn(
-          vaultUtxo.input.txHash,
-          vaultUtxo.input.outputIndex,
-          vaultUtxo.output.amount,
-          vaultUtxo.output.address,
-          0,
-        );
-      }
-    }
-
-    // Spend all swap intent UTxOs
-    for (const intentUtxo of params.swapIntentUtxos) {
-      txBuilder
-        .spendingPlutusScriptV3()
-        .txIn(
-          intentUtxo.input.txHash,
-          intentUtxo.input.outputIndex,
-          intentUtxo.output.amount,
-          intentUtxo.output.address,
-          0,
-        )
-        .txInInlineDatumPresent()
-        .txInRedeemerValue(burnIntent(), "JSON")
-        .spendingTxInReference(
-          this.config.refScripts.swapIntent.txHash,
-          this.config.refScripts.swapIntent.outputIndex,
-          (this.swapIntentSpend.cbor.length / 2).toString(),
-          this.swapIntentSpend.hash,
-        );
-    }
-
-    // Burn all intent tokens
-    const burnAmount = (-params.swapIntentUtxos.length).toString();
-    txBuilder
-      .mintPlutusScriptV3()
-      .mint(burnAmount, this.swapIntentPolicyId, "")
-      .mintTxInReference(
-        this.config.refScripts.swapIntent.txHash,
-        this.config.refScripts.swapIntent.outputIndex,
-        (this.swapIntentMint.cbor.length / 2).toString(),
-        this.swapIntentMint.hash,
-      )
-      .mintRedeemerValue(burnIntent(), "JSON");
-
-    // Add vault return output
-    if (vaultReturnValue.length > 0) {
-      txBuilder.txOut(vaultAddress, vaultReturnValue);
-    }
-
-    // Add user outputs and track indices
+    const burnAmount = (-sortedSwapIntentUtxos.length).toString();
     let outputIndex = 1; // vault change is at index 0
     const userOutputIndices: number[] = [];
-
-    for (const intentInfo of intentInfos) {
-      const outputValue = MeshValue.fromAssets(intentInfo.toAmount);
-      outputValue.addAssets([
-        { unit: "", quantity: intentInfo.deposit.toString() },
-      ]); // Add deposit to output value
-      txBuilder.txOut(intentInfo.accountAddress, outputValue.toAssets());
+    for (let i = 0; i < intentInfos.length; i++) {
       userOutputIndices.push(outputIndex);
       outputIndex++;
     }
 
-    // Withdrawal validator for batch processing
-    txBuilder
-      .withdrawalPlutusScriptV3()
-      .withdrawal(this.swapIntentWithdraw.address, "0")
-      .withdrawalTxInReference(
-        this.config.refScripts.swapIntent.txHash,
-        this.config.refScripts.swapIntent.outputIndex,
-        (this.swapIntentWithdraw.cbor.length / 2).toString(),
-        this.swapIntentWithdraw.hash,
-      )
-      .withdrawalRedeemerValue(processIntent(userOutputIndices), "JSON")
-      .requiredSignerHash(oracleInfo.ddKey)
-      .requiredSignerHash(oracleInfo.operatorKey);
+    // Helper to build tx with given exUnits
+    const buildTx = async (exUnits?: {
+      spend: { mem: number; steps: number };
+      mint: { mem: number; steps: number };
+      withdraw: { mem: number; steps: number };
+    }) => {
+      const txBuilder = this.newValidationTx(params, fetcher, false);
 
-    const txHex = await txBuilder.complete();
+      txBuilder.readOnlyTxInReference(
+        params.oracleUtxo.input.txHash,
+        params.oracleUtxo.input.outputIndex,
+      );
+
+      // Add vault inputs - handle script vs pubkey vault
+      if (oracleInfo.isVaultScript) {
+        throw new Error("Script vault not yet implemented");
+      } else {
+        for (const vaultUtxo of selectedUtxos) {
+          txBuilder.txIn(
+            vaultUtxo.input.txHash,
+            vaultUtxo.input.outputIndex,
+            vaultUtxo.output.amount,
+            vaultUtxo.output.address,
+            0,
+          );
+        }
+      }
+
+      // Spend all swap intent UTxOs
+      for (const intentUtxo of sortedSwapIntentUtxos) {
+        txBuilder
+          .spendingPlutusScriptV3()
+          .txIn(
+            intentUtxo.input.txHash,
+            intentUtxo.input.outputIndex,
+            intentUtxo.output.amount,
+            intentUtxo.output.address,
+            0,
+          )
+          .txInInlineDatumPresent()
+          .txInRedeemerValue("", "Mesh", exUnits?.spend)
+          .spendingTxInReference(
+            this.config.refScripts.swapIntent.txHash,
+            this.config.refScripts.swapIntent.outputIndex,
+            (this.swapIntentSpend.cbor.length / 2).toString(),
+            this.swapIntentSpend.hash,
+          );
+      }
+
+      // Burn all intent tokens
+      txBuilder
+        .mintPlutusScriptV3()
+        .mint(burnAmount, this.swapIntentPolicyId, "")
+        .mintTxInReference(
+          this.config.refScripts.swapIntent.txHash,
+          this.config.refScripts.swapIntent.outputIndex,
+          (this.swapIntentMint.cbor.length / 2).toString(),
+          this.swapIntentMint.hash,
+        )
+        .mintRedeemerValue(burnIntent(), "JSON", exUnits?.mint);
+
+      // Add vault return output
+      if (vaultReturnValue.length > 0) {
+        txBuilder.txOut(
+          params.vaultInputUtxos[0]!.output.address,
+          vaultReturnValue,
+        );
+      }
+
+      // Add user outputs
+      for (const intentInfo of intentInfos) {
+        const outputValue = MeshValue.fromAssets(intentInfo.toAmount);
+        outputValue.addAssets([
+          { unit: "lovelace", quantity: intentInfo.deposit.toString() },
+        ]);
+        txBuilder.txOut(intentInfo.accountAddress, outputValue.toAssets());
+      }
+
+      // Withdrawal validator for batch processing
+      txBuilder
+        .withdrawalPlutusScriptV3()
+        .withdrawal(this.swapIntentWithdraw.address, "0")
+        .withdrawalTxInReference(
+          this.config.refScripts.swapIntent.txHash,
+          this.config.refScripts.swapIntent.outputIndex,
+          (this.swapIntentWithdraw.cbor.length / 2).toString(),
+          this.swapIntentWithdraw.hash,
+        )
+        .withdrawalRedeemerValue(
+          processIntent(userOutputIndices),
+          "JSON",
+          exUnits?.withdraw,
+        )
+        .requiredSignerHash(oracleInfo.ddKey)
+        .requiredSignerHash(oracleInfo.operatorKey);
+
+      return txBuilder.complete();
+    };
+
+    // First pass: build tx with placeholder exUnits to evaluate
+    const initialTxHex = await buildTx();
+
+    const evaluator = new OfflineEvaluator(
+      fetcher,
+      this.config.networkId === 0 ? "preprod" : "mainnet",
+    );
+
+    const evalResult = await evaluator.evaluateTx(initialTxHex, [], []);
+
+    // Parse evaluation result into exUnits
+    const exUnits = {
+      spend: { mem: 0, steps: 0 },
+      mint: { mem: 0, steps: 0 },
+      withdraw: { mem: 0, steps: 0 },
+    };
+    for (const result of evalResult) {
+      if (result.tag === "SPEND") {
+        exUnits.spend = { mem: result.budget.mem, steps: result.budget.steps };
+      } else if (result.tag === "MINT") {
+        exUnits.mint = { mem: result.budget.mem, steps: result.budget.steps };
+      } else if (result.tag === "REWARD") {
+        exUnits.withdraw = {
+          mem: result.budget.mem,
+          steps: result.budget.steps,
+        };
+      }
+    }
+
+    // Second pass: build tx with actual exUnits
+    const txHex = await buildTx(exUnits);
 
     return {
       txHex,

@@ -10,6 +10,7 @@ import {
 import { SwapIntentTx } from "../src/transactions/swapIntent";
 import { createConfig, KhorConfig } from "../src/lib/constant";
 import { SwapOracleSpendBlueprint } from "../src/lib/bar";
+import { OfflineEvaluator } from "@meshsdk/core-csl";
 
 // Skip tests if env vars not set
 const BLOCKFROST_API_KEY = process.env.BLOCKFROST_API_KEY;
@@ -145,7 +146,7 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
         toAmount: [
           {
             unit: "c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d",
-            quantity: "100000",
+            quantity: "200000",
           },
         ],
         createdAt: Math.floor(Date.now() / 1000),
@@ -195,7 +196,7 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
       const params = {
         utxos,
         collateral: collateralUtxo,
-        changeAddress: userAddress,
+        changeAddress: ddAddress,
         oracleUtxo,
         swapIntentUtxo,
       };
@@ -209,7 +210,6 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
 
       // Sign with ddWallet wallet
       const signedTx = await ddWallet.signTx(result.txHex);
-      console.log("Transaction signed successfully");
 
       // Uncomment to submit:
       const txHash = await ddWallet.submitTx(signedTx);
@@ -248,13 +248,8 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
 
       const collateralUtxo = operatorCollateral[0]!;
 
-      // Build vault address from operator pubkey (vault = operator)
-      const operatorVKey = deserializeAddress(operatorAddress).pubKeyHash;
-      const vaultAddressObj = pubKeyAddress(operatorVKey);
-      const vaultAddress = serializeAddressObj(vaultAddressObj, 0);
-
       // Fetch vault UTxOs
-      const vaultUtxos = await blockfrost.fetchAddressUTxOs(vaultAddress);
+      const vaultUtxos = await blockfrost.fetchAddressUTxOs(operatorAddress);
 
       const params = {
         utxos: operatorUtxos,
@@ -281,7 +276,10 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
       console.log("Signing with Operator wallet...");
       signedTx = await operatorWallet.signTx(signedTx, true);
 
-      console.log("Transaction signed by DD and Operator successfully");
+      console.log(
+        "Transaction signed by DD and Operator successfully",
+        signedTx,
+      );
 
       // Uncomment to submit:
       const txHash = await operatorWallet.submitTx(signedTx);

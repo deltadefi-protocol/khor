@@ -72,13 +72,13 @@ pub fn process_batched_swap_intent_validation(
 ) -> Value {
   let
     processed_indices,
-    total_vault_change,
+    total_vault_net_outflow,
   <-
     list_foldl2(
       inputs,
       indices,
       zero,
-      fn(input, remaining_indices, cal_vault_change, return) {
+      fn(input, remaining_indices, cal_vault_net_outflow, return) {
         when input.output.address.payment_credential is {
           Script(script) ->
             if script == script_hash {
@@ -98,8 +98,8 @@ pub fn process_batched_swap_intent_validation(
                     ..
                   } = input_datum
 
-                  let new_cal_vault_change =
-                    cal_vault_change
+                  let new_cal_vault_net_outflow =
+                    cal_vault_net_outflow
                       |> merge(
                           calculate_vault_net_outflow(
                             from_amount,
@@ -114,7 +114,7 @@ pub fn process_batched_swap_intent_validation(
                       to_amount,
                     ) && out_utxo.address == account_address
                   if output_check {
-                    return(rest_of_indices, new_cal_vault_change)
+                    return(rest_of_indices, new_cal_vault_net_outflow)
                   } else {
                     fail @"Swap intent output incorrect"
                   }
@@ -122,16 +122,16 @@ pub fn process_batched_swap_intent_validation(
               }
             } else {
               // Not the swap intent script address, skip
-              return(remaining_indices, cal_vault_change)
+              return(remaining_indices, cal_vault_net_outflow)
             }
           _ ->
             // Not a script address, skip
-            return(remaining_indices, cal_vault_change)
+            return(remaining_indices, cal_vault_net_outflow)
         }
       },
     )
   when processed_indices is {
-    [] -> total_vault_change
+    [] -> total_vault_net_outflow
     _ -> fail @"Batch swap intent UTxOs not fully processed"
   }
 }
