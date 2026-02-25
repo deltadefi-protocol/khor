@@ -9,10 +9,10 @@ pub type MintPolarity {
   RBurn
 }
 
-// 0 - VaultOracle
+// 0 - Oracle
 
-pub type VaultOracleDatum {
-  vault_script_hash: Credential,
+pub type OracleDatum {
+  operator_cred: Credential,
   swap_intent_script_hash: ByteArray,
   operator_key: VerificationKeyHash,
   dd_key: VerificationKeyHash,

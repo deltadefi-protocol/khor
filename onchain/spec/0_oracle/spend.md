@@ -1,10 +1,10 @@
-# Specification - VaultOracle
+# Specification - Oracle
 
 ## Parameter
 
 ## Datum
 
-- `vault_script_hash`: ByteArray,
+- `operator_cred`: ByteArray,
 - `swap_intent_script_hash`: ByteArray,
 - `operator_key`: VerificationKeyHash
 

@@ -6,12 +6,12 @@ use cardano/assets.{Lovelace, PolicyId, quantity_of}
 use cardano/transaction.{
   DatumHash, InlineDatum, Input, NoDatum, Output, Redeemer, ScriptPurpose,
 }
-use types.{BurnIntent, IntentRedeemer, VaultOracleDatum}
+use types.{BurnIntent, IntentRedeemer, OracleDatum}
 
-pub fn get_vault_oracle_datum(
+pub fn get_oracle_datum(
   inputs: List<Input>,
   oracle_nft: PolicyId,
-) -> VaultOracleDatum {
+) -> OracleDatum {
   expect Some(oracle_input) =
     inputs
       |> list.find(
@@ -26,7 +26,7 @@ pub fn get_vault_oracle_datum(
       DatumHash(_) -> fail @"Oracle input datum must be inlined"
       InlineDatum(data) -> data
     }
-  expect oracle_input_datum: VaultOracleDatum = oracle_input_data
+  expect oracle_input_datum: OracleDatum = oracle_input_data
   oracle_input_datum
 }
 

@@ -10,10 +10,10 @@ use cocktail.{
 }
 use swap_utils.{process_batched_swap_intent_validation}
 use types.{
-  BurnIntent, CancelIntent, IntentRedeemer, MintIntent, ProcessIntent,
-  SwapIntentDatum, SwapIntentWithdrawRedeemer, VaultOracleDatum,
+  BurnIntent, CancelIntent, IntentRedeemer, MintIntent, OracleDatum,
+  ProcessIntent, SwapIntentDatum, SwapIntentWithdrawRedeemer,
 }
-use utils.{get_vault_oracle_datum, withdrawal_script_validated}
+use utils.{get_oracle_datum, withdrawal_script_validated}
 
 validator swap_intent(oracle_nft: PolicyId) {
   spend(
@@ -123,10 +123,10 @@ validator swap_intent(oracle_nft: PolicyId) {
       fee,
       ..
     } = self
-    let vault_oracle_input_datum: VaultOracleDatum =
-      reference_inputs |> get_vault_oracle_datum(oracle_nft)
+    let vault_oracle_input_datum: OracleDatum =
+      reference_inputs |> get_oracle_datum(oracle_nft)
 
-    let VaultOracleDatum { vault_script_hash, operator_key, dd_key, .. } =
+    let OracleDatum { operator_cred, operator_key, dd_key, .. } =
       vault_oracle_input_datum
 
     expect Script(policy_id) = account
@@ -144,9 +144,9 @@ validator swap_intent(oracle_nft: PolicyId) {
     let intent_burn_check =
       policy_only_minted_token(mint, policy_id, "", -list.length(indices))
 
-    let value_from_vault = get_all_value_from_cred(inputs, vault_script_hash)
+    let value_from_vault = get_all_value_from_cred(inputs, operator_cred)
 
-    let value_to_vault = get_all_value_to_cred(outputs, vault_script_hash)
+    let value_to_vault = get_all_value_to_cred(outputs, operator_cred)
 
     let vault_unlock_value_check =
       value_from_vault == (
@@ -160,10 +160,10 @@ validator swap_intent(oracle_nft: PolicyId) {
   publish(_r, _c, self: Transaction) {
     let Transaction { reference_inputs, extra_signatories, .. } = self
 
-    let vault_oracle_input_datum: VaultOracleDatum =
-      reference_inputs |> get_vault_oracle_datum(oracle_nft)
+    let vault_oracle_input_datum: OracleDatum =
+      reference_inputs |> get_oracle_datum(oracle_nft)
 
-    let VaultOracleDatum { operator_key, .. } = vault_oracle_input_datum
+    let OracleDatum { operator_key, .. } = vault_oracle_input_datum
 
     key_signed(extra_signatories, operator_key)?
   }

@@ -5,7 +5,7 @@ use mocktail.{
   mock_policy_id, mock_pub_key_address, mock_pub_key_hash,
   mock_script_credential, mock_script_hash,
 }
-use types.{BurnIntent, MValue, SwapIntentDatum, VaultOracleDatum}
+use types.{BurnIntent, MValue, OracleDatum, SwapIntentDatum}
 
 pub const mock_vault_oracle = mock_policy_id(10)
 
@@ -17,13 +17,13 @@ pub const mock_dd_key = mock_pub_key_hash(11)
 
 pub const mock_vault_oracle_nft = mock_script_hash(0)
 
-pub const mock_vault_script_hash = mock_script_credential(10)
+pub const mock_operator_cred = mock_script_credential(10)
 
 pub const mock_swap_intent_script_hash = mock_script_hash(11)
 
-pub const mock_vault_oracle_datum: VaultOracleDatum =
-  VaultOracleDatum {
-    vault_script_hash: mock_vault_script_hash,
+pub const mock_vault_oracle_datum: OracleDatum =
+  OracleDatum {
+    operator_cred: mock_operator_cred,
     swap_intent_script_hash: mock_swap_intent_script_hash,
     operator_key: mock_operator_key,
     dd_key: mock_dd_key,

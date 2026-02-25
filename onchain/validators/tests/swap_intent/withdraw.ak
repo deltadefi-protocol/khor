@@ -12,9 +12,9 @@ use tests/swap_utils/process_batch.{
   intent_output_value_c, m_value_a_from, m_value_b_from, m_value_c_from,
 }
 use tests/utils.{
-  mock_dd_key, mock_operator_key, mock_swap_intent_script_hash,
-  mock_vault_oracle, mock_vault_oracle_address, mock_vault_oracle_datum,
-  mock_vault_script_hash,
+  mock_dd_key, mock_operator_cred, mock_operator_key,
+  mock_swap_intent_script_hash, mock_vault_oracle, mock_vault_oracle_address,
+  mock_vault_oracle_datum,
 }
 use types.{ProcessIntent}
 
@@ -55,7 +55,7 @@ fn mock_withdraw_swap_intent_tx(
       output_reference: mock_utxo_ref(10, 0),
       output: mock_output(
         Address {
-          payment_credential: mock_vault_script_hash,
+          payment_credential: mock_operator_cred,
           stake_credential: None,
         },
         intent_output_value_a
@@ -71,7 +71,7 @@ fn mock_withdraw_swap_intent_tx(
     if is_value_unlock_from_vault_correct {
       mock_output(
         Address {
-          payment_credential: mock_vault_script_hash,
+          payment_credential: mock_operator_cred,
           stake_credential: None,
         },
         from_asset_list(m_value_a_from)
@@ -83,7 +83,7 @@ fn mock_withdraw_swap_intent_tx(
     } else {
       mock_output(
         Address {
-          payment_credential: mock_vault_script_hash,
+          payment_credential: mock_operator_cred,
           stake_credential: None,
         },
         from_asset_list(m_value_a_from)
