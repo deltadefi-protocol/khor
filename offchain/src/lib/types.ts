@@ -36,6 +36,7 @@ export interface SwapIntentInfo {
   fromAmount: Asset[];
   toAmount: Asset[];
   createdAt: number;
+  deposit: number;
 }
 
 export const vaultOracleDatum = (info: VaultOracleInfo): VaultOracleDatum =>
@@ -52,6 +53,7 @@ export const swapIntentDatum = (info: SwapIntentInfo): SwapIntentDatum => {
     MeshValue.fromAssets(info.fromAmount).toJSON(),
     MeshValue.fromAssets(info.toAmount).toJSON(),
     integer(info.createdAt),
+    integer(info.deposit),
   ]) as SwapIntentDatum;
 };
 
@@ -75,12 +77,14 @@ export const parseSwapIntentDatum = (utxo: UTxO): SwapIntentInfo | null => {
     const fromAmountData = datum.fields[1];
     const toAmountData = datum.fields[2];
     const createdAt = Number(datum.fields[3].int);
+    const deposit = Number(datum.fields[4].int);
 
     return {
       accountAddress: serializeAddressObj(addressData),
       fromAmount: MeshValue.fromValue(fromAmountData).toAssets(),
       toAmount: MeshValue.fromValue(toAmountData).toAssets(),
       createdAt,
+      deposit,
     };
   } catch (e) {
     console.error("Failed to parse SwapIntentDatum:", e);

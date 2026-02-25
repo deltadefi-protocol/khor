@@ -1,6 +1,6 @@
 use aiken/collection/list
 use cardano/address.{Credential, Script, from_script}
-use cardano/assets.{PolicyId, add, from_asset_list, merge}
+use cardano/assets.{PolicyId, add, flatten, from_asset_list, merge}
 use cardano/transaction.{OutputReference, Transaction, find_input}
 use cocktail.{
   address_payment_key, all_key_signed, get_all_value_from_cred,
@@ -22,19 +22,22 @@ validator swap_intent(oracle_nft: PolicyId) {
     input: OutputReference,
     self: Transaction,
   ) {
-    let Transaction { inputs, withdrawals, mint, .. } = self
+    let Transaction { inputs, mint, .. } = self
 
     expect Some(own_input) =
       inputs
         |> find_input(input)
 
     expect Script(own_hash) = own_input.output.address.payment_credential
-    withdrawal_script_validated(withdrawals, own_hash) || policy_only_minted_token(
-      mint,
-      own_hash,
-      "",
-      1,
-    )
+    let is_intent_burnt =
+      when
+        flatten(mint)
+          |> list.filter(fn(asset) { asset.1st == own_hash })
+      is {
+        [(_, _, minted_quantity)] -> minted_quantity < 0
+        _ -> False
+      }
+    is_intent_burnt?
   }
 
   mint(redeemer: IntentRedeemer, policy_id: PolicyId, self: Transaction) {
@@ -57,12 +60,14 @@ validator swap_intent(oracle_nft: PolicyId) {
       (MintIntent, [intent_output]) -> {
         let is_mint_value_correct =
           policy_only_minted_token(mint, policy_id, "", 1)
-        expect SwapIntentDatum { from_amount, .. }: SwapIntentDatum =
+        expect SwapIntentDatum { from_amount, deposit, .. }: SwapIntentDatum =
           output_inline_datum(intent_output)
 
         let is_value_locked =
           intent_output.value == (
-            from_asset_list(from_amount) |> add(policy_id, "", 1)
+            from_asset_list(from_amount)
+              |> add(policy_id, "", 1)
+              |> add("", "", deposit)
           )
         is_value_locked? && is_mint_value_correct?
       }

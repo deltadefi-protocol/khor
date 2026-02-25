@@ -1,5 +1,5 @@
 use cardano/address.{from_script}
-use cardano/assets.{from_asset_list, merge}
+use cardano/assets.{add, from_asset_list, merge}
 use cardano/transaction.{InlineDatum, Input, NoDatum}
 use mocktail.{mock_output, mock_pub_key_address, mock_utxo_ref}
 use swap_utils.{calculate_vault_change, process_batched_swap_intent_validation}
@@ -22,6 +22,7 @@ const swap_intent_datum_a: Data =
     from_amount: m_value_a_from,
     to_amount: m_value_a_to,
     created_at: mock_created_at,
+    deposit: 1500000,
   }
 
 pub const intent_output_value_a =
@@ -33,6 +34,7 @@ pub const intent_output_value_a =
       ),
     ],
   )
+    |> add("", "", 1500000)
 
 pub const intent_input_a =
   Input {
@@ -69,10 +71,11 @@ const swap_intent_datum_b: Data =
     from_amount: m_value_b_from,
     to_amount: m_value_b_to,
     created_at: mock_created_at,
+    deposit: 1500000,
   }
 
 pub const intent_output_value_b =
-  from_asset_list([Pair("", [Pair("", 1100000)])])
+  from_asset_list([Pair("", [Pair("", 1100000)])]) |> add("", "", 1500000)
 
 pub const intent_input_b =
   Input {
@@ -117,6 +120,7 @@ const swap_intent_datum_c: Data =
     from_amount: m_value_c_from,
     to_amount: m_value_c_to,
     created_at: mock_created_at,
+    deposit: 1500000,
   }
 
 pub const intent_output_value_c =
@@ -129,6 +133,7 @@ pub const intent_output_value_c =
       ),
     ],
   )
+    |> add("", "", 1500000)
 
 pub const intent_input_c =
   Input {

@@ -1,6 +1,6 @@
 use aiken/crypto.{VerificationKeyHash}
 use cardano/address.{Address, Credential}
-use cardano/assets.{AssetName, PolicyId}
+use cardano/assets.{AssetName, Lovelace, PolicyId}
 
 // Mint Redeemer
 
@@ -24,6 +24,7 @@ pub type SwapIntentDatum {
   from_amount: MValue,
   to_amount: MValue,
   created_at: Int,
+  deposit: Lovelace,
 }
 
 pub type IntentRedeemer {

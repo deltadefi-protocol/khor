@@ -126,10 +126,13 @@ export type SwapIntentDatum = ConStr0<
     Pairs<PolicyId, Pairs<AssetName, Integer>>,
     Pairs<PolicyId, Pairs<AssetName, Integer>>,
     Integer,
+    any,
   ]
 >;
 
 export type MValue = Pairs<PolicyId, Pairs<AssetName, Integer>>;
+
+export type Lovelace = any;
 
 export type IntentRedeemer = MintIntent | BurnIntent | CancelIntent;
 

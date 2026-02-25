@@ -43,7 +43,8 @@ fn mock_mint_swap_intent_tx(test_case: MintSwapIntentTestCase) -> Transaction {
         is_token_output_clean,
         from_script(mock_swap_intent_script_hash),
         from_asset_list(swap_value)
-          |> add(mock_swap_intent_script_hash, "", 1),
+          |> add(mock_swap_intent_script_hash, "", 1)
+          |> add("", "", 1500000),
       )
     |> tx_out(
         !is_token_output_clean,

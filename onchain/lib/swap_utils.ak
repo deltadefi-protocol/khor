@@ -91,6 +91,7 @@ pub fn process_batched_swap_intent_validation(
                     account_address,
                     from_amount,
                     to_amount,
+                    deposit,
                     ..
                   } = input_datum
 
@@ -102,7 +103,10 @@ pub fn process_batched_swap_intent_validation(
 
                   // - Check the output value and address
                   let output_check =
-                    validate_minimum_output_value(out_utxo.value, to_amount) && out_utxo.address == account_address
+                    validate_minimum_output_value(
+                      out_utxo.value |> add("", "", -deposit),
+                      to_amount,
+                    ) && out_utxo.address == account_address
                   if output_check {
                     return(rest_of_indices, new_cal_vault_change)
                   } else {

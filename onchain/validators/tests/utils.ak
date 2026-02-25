@@ -49,6 +49,7 @@ pub const mock_swap_intent_datum =
     from_amount: mock_swap_from_m_value,
     to_amount: mock_swap_to_m_value,
     created_at: 0,
+    deposit: 1500000,
   }
 
 pub fn to_mvalue(value: Value) -> MValue {

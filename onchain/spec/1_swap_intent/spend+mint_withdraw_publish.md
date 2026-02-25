@@ -9,6 +9,8 @@
 - `account_address`: Address
 - `from_amount`: `MValue`
 - `to_amount`: `MValue`
+- `created_at`: Int
+- `deposit`: Lovelace
 
 ## User Action - Spend
 
@@ -20,7 +22,7 @@
 1. Mint - Redeemer `MintIntent`
    - Exactly 1 intent token is minted under own `policy_id` with asset name `""`
    - Exactly 1 output at own script address carrying own `policy_id`
-   - That output's value is exactly `from_asset_list(from_amount) + 1 intent_token`
+   - That output's value is exactly `from_asset_list(from_amount) + deposit + 1 intent_token`
    - That output carries an inline `SwapIntentDatum`
 
 2. Burn - Redeemer `BurnIntent`

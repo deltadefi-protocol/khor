@@ -3,6 +3,7 @@ import {
   byteString,
   MeshValue,
   pubKeyAddress,
+  resolveSlotNo,
   scriptAddress,
   serializeAddressObj,
   TxInput,
@@ -99,6 +100,7 @@ export interface CreateSwapIntentParams extends TxParams {
   fromAmount: Asset[];
   toAmount: Asset[];
   createdAt: number;
+  deposit: number;
 }
 
 export interface CancelSwapIntentParams extends TxParams {
@@ -153,18 +155,20 @@ export class SwapIntentTx extends KhorTxBuilder {
     fetcher?: any,
   ): Promise<TxComplete> => {
     const txBuilder = this.newValidationTx(params, fetcher);
+    const networkName = this.config.networkId === 0 ? "preprod" : "mainnet";
+    const slot = resolveSlotNo(networkName, params.createdAt + 600); // 10 minutes after creation
 
     const datum = swapIntentDatum({
       accountAddress: params.accountAddress,
       fromAmount: params.fromAmount,
       toAmount: params.toAmount,
-      createdAt: params.createdAt,
+      createdAt: Number(slot),
+      deposit: params.deposit,
     });
 
-    const outputAssets: Asset[] = [
-      { unit: this.swapIntentPolicyId, quantity: "1" },
-      ...params.fromAmount,
-    ];
+    const outputValue = MeshValue.fromAssets(params.fromAmount);
+    outputValue.addAssets([{ unit: "", quantity: params.deposit.toString() }]); // Add deposit to output value
+    outputValue.addAssets([{ unit: this.swapIntentPolicyId, quantity: "1" }]);
 
     txBuilder
       .readOnlyTxInReference(
@@ -181,7 +185,7 @@ export class SwapIntentTx extends KhorTxBuilder {
         this.swapIntentMint.hash,
       )
       .mintRedeemerValue(mintIntent(), "JSON")
-      .txOut(this.swapIntentAddress, outputAssets)
+      .txOut(this.swapIntentAddress, outputValue.toAssets())
       .txOutInlineDatumValue(datum, "JSON");
 
     const txHex = await txBuilder.complete();
@@ -229,7 +233,7 @@ export class SwapIntentTx extends KhorTxBuilder {
         0,
       )
       .txInInlineDatumPresent()
-      .txInRedeemerValue(cancelIntent(), "JSON")
+      .txInRedeemerValue("", "Mesh")
       .spendingTxInReference(
         this.config.refScripts.swapIntent.txHash,
         this.config.refScripts.swapIntent.outputIndex,
@@ -245,7 +249,7 @@ export class SwapIntentTx extends KhorTxBuilder {
         (this.swapIntentMint.cbor.length / 2).toString(),
         this.swapIntentMint.hash,
       )
-      .mintRedeemerValue(burnIntent(), "JSON")
+      .mintRedeemerValue(cancelIntent(), "JSON")
       // Send locked funds back to user's account address
       .txOut(intentInfo.accountAddress, returnAssets)
       .invalidBefore(intentInfo.createdAt + 600); // 10 minutes after creation
@@ -376,7 +380,11 @@ export class SwapIntentTx extends KhorTxBuilder {
     const userOutputIndices: number[] = [];
 
     for (const intentInfo of intentInfos) {
-      txBuilder.txOut(intentInfo.accountAddress, intentInfo.toAmount);
+      const outputValue = MeshValue.fromAssets(intentInfo.toAmount);
+      outputValue.addAssets([
+        { unit: "", quantity: intentInfo.deposit.toString() },
+      ]); // Add deposit to output value
+      txBuilder.txOut(intentInfo.accountAddress, outputValue.toAssets());
       userOutputIndices.push(outputIndex);
       outputIndex++;
     }
