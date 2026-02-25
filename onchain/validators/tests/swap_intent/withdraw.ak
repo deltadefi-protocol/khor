@@ -59,8 +59,9 @@ fn mock_withdraw_swap_intent_tx(
           stake_credential: None,
         },
         intent_output_value_a
-          |> merge(intent_output_value_b)
-          |> merge(intent_output_value_c),
+          |> add("", "", -1500000)
+          |> merge(intent_output_value_b |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000)),
         NoDatum,
         None,
       ),

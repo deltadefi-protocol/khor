@@ -41,24 +41,25 @@ fn mock_burn_swap_intent_tx() -> Transaction {
           stake_credential: None,
         },
         intent_output_value_c
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c)
-          |> merge(intent_output_value_c),
+          |> add("", "", -1500000)
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000))
+          |> merge(intent_output_value_c |> add("", "", -1500000)),
         NoDatum,
         None,
       ),

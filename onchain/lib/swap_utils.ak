@@ -8,7 +8,10 @@ use cocktail.{input_inline_datum}
 use types.{MValue, SwapIntentDatum}
 
 // change = value from vault - value to vault = decrease in vault
-pub fn calculate_vault_change(from_amount: MValue, output_value: Value) -> Value {
+pub fn calculate_vault_net_outflow(
+  from_amount: MValue,
+  output_value: Value,
+) -> Value {
   pairs.foldl(
     from_amount,
     output_value,
@@ -98,7 +101,10 @@ pub fn process_batched_swap_intent_validation(
                   let new_cal_vault_change =
                     cal_vault_change
                       |> merge(
-                          calculate_vault_change(from_amount, out_utxo.value),
+                          calculate_vault_net_outflow(
+                            from_amount,
+                            out_utxo.value |> add("", "", -deposit),
+                          ),
                         )
 
                   // - Check the output value and address

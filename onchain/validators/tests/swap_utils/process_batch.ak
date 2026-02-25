@@ -2,7 +2,9 @@ use cardano/address.{from_script}
 use cardano/assets.{add, from_asset_list, merge}
 use cardano/transaction.{InlineDatum, Input, NoDatum}
 use mocktail.{mock_output, mock_pub_key_address, mock_utxo_ref}
-use swap_utils.{calculate_vault_change, process_batched_swap_intent_validation}
+use swap_utils.{
+  calculate_vault_net_outflow, process_batched_swap_intent_validation,
+}
 use tests/utils.{mock_created_at, mock_swap_intent_script_hash}
 use types.{SwapIntentDatum}
 
@@ -204,9 +206,22 @@ test process_batch_normal() {
     indices,
     mock_swap_intent_script_hash,
   ) == (
-    calculate_vault_change(m_value_a_from, intent_output_value_a)
-      |> merge(calculate_vault_change(m_value_b_from, intent_output_value_b))
-      |> merge(calculate_vault_change(m_value_c_from, intent_output_value_c))
+    calculate_vault_net_outflow(
+      m_value_a_from,
+      intent_output_value_a |> add("", "", -1500000),
+    )
+      |> merge(
+          calculate_vault_net_outflow(
+            m_value_b_from,
+            intent_output_value_b |> add("", "", -1500000),
+          ),
+        )
+      |> merge(
+          calculate_vault_net_outflow(
+            m_value_c_from,
+            intent_output_value_c |> add("", "", -1500000),
+          ),
+        )
   )
 }
 
@@ -217,9 +232,20 @@ test process_batch_excessive_inputs() fail {
     indices,
     mock_swap_intent_script_hash,
   ) == (
-    calculate_vault_change(m_value_a_from, intent_output_value_a)
-      |> merge(calculate_vault_change(m_value_b_from, intent_output_value_b))
-      |> merge(calculate_vault_change(m_value_c_from, intent_output_value_c))
+    calculate_vault_net_outflow(
+      m_value_a_from,
+      intent_output_value_a |> add("", "", -1500000),
+    )
+      |> merge(
+          calculate_vault_net_outflow(m_value_b_from, intent_output_value_b)
+            |> add("", "", -1500000),
+        )
+      |> merge(
+          calculate_vault_net_outflow(
+            m_value_c_from,
+            intent_output_value_c |> add("", "", -1500000),
+          ),
+        )
   )
 }
 
@@ -230,9 +256,22 @@ test process_batch_insufficient_inputs() fail {
     indices,
     mock_swap_intent_script_hash,
   ) == (
-    calculate_vault_change(m_value_a_from, intent_output_value_a)
-      |> merge(calculate_vault_change(m_value_b_from, intent_output_value_b))
-      |> merge(calculate_vault_change(m_value_c_from, intent_output_value_c))
+    calculate_vault_net_outflow(
+      m_value_a_from,
+      intent_output_value_a |> add("", "", -1500000),
+    )
+      |> merge(
+          calculate_vault_net_outflow(
+            m_value_b_from,
+            intent_output_value_b |> add("", "", -1500000),
+          ),
+        )
+      |> merge(
+          calculate_vault_net_outflow(
+            m_value_c_from,
+            intent_output_value_c |> add("", "", -1500000),
+          ),
+        )
   )
 }
 
@@ -243,9 +282,22 @@ test process_batch_incorrect_outputs() fail {
     indices,
     mock_swap_intent_script_hash,
   ) == (
-    calculate_vault_change(m_value_a_from, intent_output_value_a)
-      |> merge(calculate_vault_change(m_value_b_from, intent_output_value_b))
-      |> merge(calculate_vault_change(m_value_c_from, intent_output_value_c))
+    calculate_vault_net_outflow(
+      m_value_a_from,
+      intent_output_value_a |> add("", "", -1500000),
+    )
+      |> merge(
+          calculate_vault_net_outflow(
+            m_value_b_from,
+            intent_output_value_b |> add("", "", -1500000),
+          ),
+        )
+      |> merge(
+          calculate_vault_net_outflow(
+            m_value_c_from,
+            intent_output_value_c |> add("", "", -1500000),
+          ),
+        )
   )
 }
 
@@ -256,9 +308,22 @@ test process_batch_incorrect_indices() fail {
     incorrect_indices,
     mock_swap_intent_script_hash,
   ) == (
-    calculate_vault_change(m_value_a_from, intent_output_value_a)
-      |> merge(calculate_vault_change(m_value_b_from, intent_output_value_b))
-      |> merge(calculate_vault_change(m_value_c_from, intent_output_value_c))
+    calculate_vault_net_outflow(
+      m_value_a_from,
+      intent_output_value_a |> add("", "", -1500000),
+    )
+      |> merge(
+          calculate_vault_net_outflow(
+            m_value_b_from,
+            intent_output_value_b |> add("", "", -1500000),
+          ),
+        )
+      |> merge(
+          calculate_vault_net_outflow(
+            m_value_c_from,
+            intent_output_value_c |> add("", "", -1500000),
+          ),
+        )
   )
 }
 
@@ -269,8 +334,21 @@ test process_batch_excessive_indices() fail {
     excessive_indices,
     mock_swap_intent_script_hash,
   ) == (
-    calculate_vault_change(m_value_a_from, intent_output_value_a)
-      |> merge(calculate_vault_change(m_value_b_from, intent_output_value_b))
-      |> merge(calculate_vault_change(m_value_c_from, intent_output_value_c))
+    calculate_vault_net_outflow(
+      m_value_a_from,
+      intent_output_value_a |> add("", "", -1500000),
+    )
+      |> merge(
+          calculate_vault_net_outflow(
+            m_value_b_from,
+            intent_output_value_b |> add("", "", -1500000),
+          ),
+        )
+      |> merge(
+          calculate_vault_net_outflow(
+            m_value_c_from,
+            intent_output_value_c |> add("", "", -1500000),
+          ),
+        )
   )
 }
