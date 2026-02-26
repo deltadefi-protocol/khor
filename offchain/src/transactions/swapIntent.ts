@@ -8,7 +8,10 @@ import {
 } from "@meshsdk/core";
 import { KhorTxBuilder, TxParams, TxComplete } from "../lib/common";
 import { KhorConfig } from "../lib/constant";
-import { SwapIntentSpendBlueprint } from "../lib/bar";
+import {
+  SwapIntentSpendBlueprint,
+  SwapIntentWithdrawBlueprint,
+} from "../lib/bar";
 import {
   swapIntentDatum,
   cancelIntent,
@@ -108,6 +111,7 @@ export interface ProcessSwapIntentsParams extends TxParams {
 
 export class SwapIntentTx extends KhorTxBuilder {
   private swapIntentSpend: SwapIntentSpendBlueprint;
+  private swapIntentWithdraw: SwapIntentWithdrawBlueprint;
   private swapIntentScriptHash: string;
   private swapIntentAddress: string;
 
@@ -119,6 +123,10 @@ export class SwapIntentTx extends KhorTxBuilder {
     this.swapIntentSpend = new SwapIntentSpendBlueprint(config.networkId, [
       byteString(oracleNftPolicyId),
     ]);
+    this.swapIntentWithdraw = new SwapIntentWithdrawBlueprint(
+      config.networkId,
+      [byteString(oracleNftPolicyId)],
+    );
 
     this.swapIntentScriptHash = this.swapIntentSpend.hash;
     this.swapIntentAddress = this.swapIntentSpend.address;
@@ -344,12 +352,12 @@ export class SwapIntentTx extends KhorTxBuilder {
       // Withdrawal validator for batch processing
       txBuilder
         .withdrawalPlutusScriptV3()
-        .withdrawal(this.swapIntentSpend.address, "0")
+        .withdrawal(this.swapIntentWithdraw.address, "0")
         .withdrawalTxInReference(
           this.config.refScripts.swapIntent.txHash,
           this.config.refScripts.swapIntent.outputIndex,
-          (this.swapIntentSpend.cbor.length / 2).toString(),
-          this.swapIntentSpend.hash,
+          (this.swapIntentWithdraw.cbor.length / 2).toString(),
+          this.swapIntentWithdraw.hash,
         )
         .withdrawalRedeemerValue(
           processIntent(userOutputIndices),
