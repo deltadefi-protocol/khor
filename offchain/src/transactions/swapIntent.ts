@@ -4,6 +4,7 @@ import {
   MeshValue,
   resolveSlotNo,
   TxInput,
+  TxParser,
   UTxO,
 } from "@meshsdk/core";
 import { KhorTxBuilder, TxParams, TxComplete } from "../lib/common";
@@ -103,10 +104,20 @@ export interface CancelSwapIntentParams extends TxParams {
   swapIntentUtxo: UTxO;
 }
 
+export interface SwapIntentFill {
+  utxo: UTxO;
+  outputAmount: Asset[]; // Output amount for this intent (can be >= toAmount)
+}
+
 export interface ProcessSwapIntentsParams extends TxParams {
   oracleUtxo: UTxO;
-  swapIntentUtxos: UTxO[];
+  swapIntentFills: SwapIntentFill[];
   vaultInputUtxos: UTxO[];
+}
+
+export interface ProcessSwapIntentsResult extends TxComplete {
+  feePerIntent: string;
+  intentCount: number;
 }
 
 export class SwapIntentTx extends KhorTxBuilder {
@@ -233,23 +244,25 @@ export class SwapIntentTx extends KhorTxBuilder {
   processSwapIntents = async (
     params: ProcessSwapIntentsParams,
     fetcher?: any,
-  ): Promise<TxComplete> => {
+  ): Promise<ProcessSwapIntentsResult> => {
     // Parse oracle datum to check if vault is a script
     const oracleInfo = parseVaultOracleDatum(params.oracleUtxo);
     if (!oracleInfo) {
       throw new Error("Invalid oracle UTxO");
     }
 
-    // Sort swap intent UTxOs by txHash and outputIndex (ascending) to match Cardano input ordering
-    const sortedSwapIntentUtxos = [...params.swapIntentUtxos].sort((a, b) => {
-      const txHashCompare = a.input.txHash.localeCompare(b.input.txHash);
+    // Sort swap intent fills by utxo txHash and outputIndex (ascending) to match Cardano input ordering
+    const sortedFills = [...params.swapIntentFills].sort((a, b) => {
+      const txHashCompare = a.utxo.input.txHash.localeCompare(
+        b.utxo.input.txHash,
+      );
       if (txHashCompare !== 0) return txHashCompare;
-      return a.input.outputIndex - b.input.outputIndex;
+      return a.utxo.input.outputIndex - b.utxo.input.outputIndex;
     });
 
     // Parse all intent datums for user outputs (in sorted order)
-    const intentInfos = sortedSwapIntentUtxos.map((utxo) => {
-      const info = parseSwapIntentDatum(utxo);
+    const intentInfos = sortedFills.map((fill) => {
+      const info = parseSwapIntentDatum(fill.utxo);
       if (!info) {
         throw new Error("Invalid swap intent UTxO");
       }
@@ -258,16 +271,18 @@ export class SwapIntentTx extends KhorTxBuilder {
 
     // Calculate total amounts
     const totalFromAmount = new MeshValue();
-    const totalToAmount = new MeshValue();
+    const totalOutputAmount = new MeshValue();
     for (const intentInfo of intentInfos) {
       totalFromAmount.addAssets(intentInfo.fromAmount);
-      totalToAmount.addAssets(intentInfo.toAmount);
+    }
+    for (const fill of sortedFills) {
+      totalOutputAmount.addAssets(fill.outputAmount);
     }
 
-    // Select vault UTxOs to cover totalToAmount (what users receive)
+    // Select vault UTxOs to cover totalOutputAmount (what users receive)
     const { selectedUtxos, returnValue } = selectUtxosForWithdrawal(
       params.vaultInputUtxos,
-      totalToAmount.toAssets(),
+      totalOutputAmount.toAssets(),
     );
 
     // Vault return = returnValue + totalFromAmount (from intents)
@@ -275,7 +290,6 @@ export class SwapIntentTx extends KhorTxBuilder {
       .addAssets(totalFromAmount.toAssets())
       .toAssets();
 
-    const burnAmount = (-sortedSwapIntentUtxos.length).toString();
     let outputIndex = 1; // vault change is at index 0
     const userOutputIndices: number[] = [];
     for (let i = 0; i < intentInfos.length; i++) {
@@ -312,14 +326,14 @@ export class SwapIntentTx extends KhorTxBuilder {
       }
 
       // Spend all swap intent UTxOs
-      for (const intentUtxo of sortedSwapIntentUtxos) {
+      for (const fill of sortedFills) {
         txBuilder
           .spendingPlutusScriptV3()
           .txIn(
-            intentUtxo.input.txHash,
-            intentUtxo.input.outputIndex,
-            intentUtxo.output.amount,
-            intentUtxo.output.address,
+            fill.utxo.input.txHash,
+            fill.utxo.input.outputIndex,
+            fill.utxo.output.amount,
+            fill.utxo.output.address,
             0,
           )
           .txInInlineDatumPresent()
@@ -340,9 +354,11 @@ export class SwapIntentTx extends KhorTxBuilder {
         );
       }
 
-      // Add user outputs
-      for (const intentInfo of intentInfos) {
-        const outputValue = MeshValue.fromAssets(intentInfo.toAmount);
+      // Add user outputs (using outputAmount from each fill, which can be >= toAmount)
+      for (let i = 0; i < sortedFills.length; i++) {
+        const fill = sortedFills[i]!;
+        const intentInfo = intentInfos[i]!;
+        const outputValue = MeshValue.fromAssets(fill.outputAmount);
         outputValue.addAssets([
           { unit: "lovelace", quantity: intentInfo.deposit.toString() },
         ]);
@@ -400,9 +416,17 @@ export class SwapIntentTx extends KhorTxBuilder {
     // Second pass: build tx with actual exUnits
     const txHex = await buildTx(exUnits);
 
+    // Extract fee from transaction and calculate fee per intent
+    const tx = csl.Transaction.from_hex(txHex);
+    const totalFee = BigInt(tx.body().fee().to_str());
+    const intentCount = sortedFills.length;
+    const feePerIntent = (totalFee / BigInt(intentCount)).toString();
+
     return {
       txHex,
       spentUtxos: extractSpentUtxos(txHex),
+      feePerIntent,
+      intentCount,
     };
   };
 }

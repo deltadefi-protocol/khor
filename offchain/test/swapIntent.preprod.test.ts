@@ -243,12 +243,24 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
       // Fetch vault UTxOs
       const vaultUtxos = await blockfrost.fetchAddressUTxOs(operatorAddress);
 
+      // Build swap intent fills (pair each intent with its output amount)
+      // In practice, outputAmount would come from oracle/price calculation
+      const swapIntentFills = intentUtxos.map((utxo) => ({
+        utxo,
+        outputAmount: [
+          {
+            unit: "c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d",
+            quantity: "200000",
+          },
+        ], // Example: fill with the expected toAmount
+      }));
+
       const params = {
         utxos: operatorUtxos,
         collateral: collateralUtxo,
         changeAddress: operatorAddress,
         oracleUtxo,
-        swapIntentUtxos: intentUtxos,
+        swapIntentFills,
         vaultInputUtxos: vaultUtxos,
       };
 
@@ -274,8 +286,8 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
       );
 
       // Uncomment to submit:
-      const txHash = await operatorWallet.submitTx(signedTx);
-      console.log("Submitted tx:", txHash);
+      // const txHash = await operatorWallet.submitTx(signedTx);
+      // console.log("Submitted tx:", txHash);
     }, 120000);
   });
 });
