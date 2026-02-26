@@ -12,18 +12,18 @@ import {
   serializeAddressObj,
 } from "@meshsdk/core";
 import {
-  VaultOracleDatum,
-  SwapIntentDatum,
-  MintIntent,
-  BurnIntent,
   CancelIntent,
   ProcessIntent,
   RMint,
   RBurn,
+  ProcessSwap,
+  OracleDatum,
+  SwapIntentDatum,
+  SpamPrevention,
 } from "./bar";
 import { addrBech32ToPlutusDataObj, parseDatumCbor } from "@meshsdk/core-csl";
 
-export interface VaultOracleInfo {
+export interface OracleInfo {
   vaultScriptHash: string;
   isVaultScript: boolean;
   swapIntentScriptHash: string;
@@ -39,13 +39,13 @@ export interface SwapIntentInfo {
   deposit: number;
 }
 
-export const vaultOracleDatum = (info: VaultOracleInfo): VaultOracleDatum =>
+export const oracleDatum = (info: OracleInfo): OracleDatum =>
   conStr0([
     credential(info.vaultScriptHash, info.isVaultScript),
     byteString(info.swapIntentScriptHash),
     byteString(info.operatorKey),
     byteString(info.ddKey),
-  ]) as VaultOracleDatum;
+  ]) as OracleDatum;
 
 export const swapIntentDatum = (info: SwapIntentInfo): SwapIntentDatum => {
   return conStr0([
@@ -60,9 +60,10 @@ export const swapIntentDatum = (info: SwapIntentInfo): SwapIntentDatum => {
 export const rMint = (): RMint => conStr0([]) as RMint;
 export const rBurn = (): RBurn => conStr1([]) as RBurn;
 
-export const mintIntent = (): MintIntent => conStr0([]) as MintIntent;
-export const burnIntent = (): BurnIntent => conStr1([]) as BurnIntent;
-export const cancelIntent = (): CancelIntent => conStr2([]) as CancelIntent;
+export const processSwap = (): ProcessSwap => conStr0([]) as ProcessSwap;
+export const cancelIntent = (): CancelIntent => conStr1([]) as CancelIntent;
+export const spamPrevention = (): SpamPrevention =>
+  conStr2([]) as SpamPrevention;
 
 export const processIntent = (indices: number[]): ProcessIntent =>
   conStr0([list(indices.map((i) => integer(i)))]) as ProcessIntent;
@@ -92,11 +93,11 @@ export const parseSwapIntentDatum = (utxo: UTxO): SwapIntentInfo | null => {
   }
 };
 
-export const parseVaultOracleDatum = (utxo: UTxO): VaultOracleInfo | null => {
+export const parseVaultOracleDatum = (utxo: UTxO): OracleInfo | null => {
   if (!utxo.output.plutusData) return null;
 
   try {
-    const datum = parseDatumCbor(utxo.output.plutusData) as VaultOracleDatum;
+    const datum = parseDatumCbor(utxo.output.plutusData) as OracleDatum;
 
     const vaultCredData = datum.fields[0];
     const isVaultScript = vaultCredData.constructor === 1;

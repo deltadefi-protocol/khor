@@ -7,7 +7,7 @@ use mocktail.{
   mock_output, mock_tx_hash, mock_utxo_ref, mocktail_tx, ref_tx_in,
   ref_tx_in_inline_datum, script_withdrawal, tx_in, tx_in_inline_datum, tx_out,
 }
-use swap_intent/spend_mint_withdraw_publish as swap_intent_spend_mint_withdraw_publish
+use swap_intent/spend_withdraw_publish as swap_intent_spend_withdraw_publish
 use tests/utils.{
   mock_account_address, mock_created_at, mock_dd_key, mock_swap_from_m_value,
   mock_swap_intent_datum, mock_swap_script_hash, mock_vault_oracle,
@@ -57,7 +57,7 @@ test s1_spend_success_process_swap() {
       ProcessSwapTestCase { is_withdrawal_script_executed: True },
     )
 
-  swap_intent_spend_mint_withdraw_publish.swap_intent.spend(
+  swap_intent_spend_withdraw_publish.swap_intent.spend(
     mock_vault_oracle,
     None,
     ProcessSwap,
@@ -72,7 +72,7 @@ test s1_spend_fail_process_swap_with_no_withdrawal_script_executed() {
       ProcessSwapTestCase { is_withdrawal_script_executed: False },
     )
 
-  !swap_intent_spend_mint_withdraw_publish.swap_intent.spend(
+  !swap_intent_spend_withdraw_publish.swap_intent.spend(
     mock_vault_oracle,
     None,
     ProcessSwap,
@@ -144,7 +144,7 @@ test s1_mint_success_cancel_swap_intent() {
       },
     )
 
-  swap_intent_spend_mint_withdraw_publish.swap_intent.spend(
+  swap_intent_spend_withdraw_publish.swap_intent.spend(
     mock_vault_oracle,
     None,
     redeemer,
@@ -164,7 +164,7 @@ test s1_mint_fail_cancel_swap_intent_with_invalid_cancel_time() {
       },
     )
 
-  !swap_intent_spend_mint_withdraw_publish.swap_intent.spend(
+  !swap_intent_spend_withdraw_publish.swap_intent.spend(
     mock_vault_oracle,
     None,
     redeemer,
@@ -184,7 +184,7 @@ test s1_mint_fail_cancel_swap_intent_with_value_unlocked_incorrect_and_no_sign()
       },
     )
 
-  !swap_intent_spend_mint_withdraw_publish.swap_intent.spend(
+  !swap_intent_spend_withdraw_publish.swap_intent.spend(
     mock_vault_oracle,
     None,
     redeemer,
@@ -204,7 +204,7 @@ test s1_mint_success_cancel_swap_intent_with_no_account_signature_but_with_value
       },
     )
 
-  swap_intent_spend_mint_withdraw_publish.swap_intent.spend(
+  swap_intent_spend_withdraw_publish.swap_intent.spend(
     mock_vault_oracle,
     None,
     redeemer,
@@ -224,7 +224,7 @@ test s1_mint_success_cancel_swap_intent_with_value_unlocked_incorrect_but_has_si
       },
     )
 
-  swap_intent_spend_mint_withdraw_publish.swap_intent.spend(
+  swap_intent_spend_withdraw_publish.swap_intent.spend(
     mock_vault_oracle,
     None,
     redeemer,
@@ -326,7 +326,7 @@ test s1_spend_success_spam_prevention_no_datum() {
       },
     )
 
-  swap_intent_spend_mint_withdraw_publish.swap_intent.spend(
+  swap_intent_spend_withdraw_publish.swap_intent.spend(
     mock_vault_oracle,
     None,
     SpamPrevention,
@@ -346,7 +346,7 @@ test s1_spend_success_spam_prevention_invalid_datum() {
       },
     )
 
-  swap_intent_spend_mint_withdraw_publish.swap_intent.spend(
+  swap_intent_spend_withdraw_publish.swap_intent.spend(
     mock_vault_oracle,
     Some(datum),
     SpamPrevention,
@@ -367,7 +367,7 @@ test s1_spend_success_spam_prevention_after_24_hours() {
       },
     )
 
-  swap_intent_spend_mint_withdraw_publish.swap_intent.spend(
+  swap_intent_spend_withdraw_publish.swap_intent.spend(
     mock_vault_oracle,
     Some(datum),
     SpamPrevention,
@@ -388,7 +388,7 @@ test s1_spend_success_spam_prevention_future_created_at() {
       },
     )
 
-  swap_intent_spend_mint_withdraw_publish.swap_intent.spend(
+  swap_intent_spend_withdraw_publish.swap_intent.spend(
     mock_vault_oracle,
     Some(datum),
     SpamPrevention,
@@ -407,7 +407,7 @@ test s1_spend_fail_spam_prevention_not_signed() {
       },
     )
 
-  !swap_intent_spend_mint_withdraw_publish.swap_intent.spend(
+  !swap_intent_spend_withdraw_publish.swap_intent.spend(
     mock_vault_oracle,
     None,
     SpamPrevention,
@@ -428,7 +428,7 @@ test s1_spend_fail_spam_prevention_valid_intent_within_24_hours() {
       },
     )
 
-  !swap_intent_spend_mint_withdraw_publish.swap_intent.spend(
+  !swap_intent_spend_withdraw_publish.swap_intent.spend(
     mock_vault_oracle,
     Some(datum),
     SpamPrevention,

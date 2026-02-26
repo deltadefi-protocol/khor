@@ -88,7 +88,7 @@
       "hash": "7f246f934c34803b7dbb6225f1a401012849eeb0d674fbaf35b7a3d3"
     },
     {
-      "title": "swap_intent/spend_mint_withdraw_publish.swap_intent.spend",
+      "title": "swap_intent/spend_withdraw_publish.swap_intent.spend",
       "datum": {
         "title": "datum_opt",
         "schema": {
@@ -113,7 +113,7 @@
       "hash": "768cc9909b7c24084e3c9e710f0d31378af975e9c7de249682a8fbdf"
     },
     {
-      "title": "swap_intent/spend_mint_withdraw_publish.swap_intent.withdraw",
+      "title": "swap_intent/spend_withdraw_publish.swap_intent.withdraw",
       "redeemer": {
         "title": "redeemer",
         "schema": {
@@ -132,7 +132,7 @@
       "hash": "768cc9909b7c24084e3c9e710f0d31378af975e9c7de249682a8fbdf"
     },
     {
-      "title": "swap_intent/spend_mint_withdraw_publish.swap_intent.publish",
+      "title": "swap_intent/spend_withdraw_publish.swap_intent.publish",
       "redeemer": {
         "title": "_r",
         "schema": {
@@ -151,7 +151,7 @@
       "hash": "768cc9909b7c24084e3c9e710f0d31378af975e9c7de249682a8fbdf"
     },
     {
-      "title": "swap_intent/spend_mint_withdraw_publish.swap_intent.else",
+      "title": "swap_intent/spend_withdraw_publish.swap_intent.else",
       "redeemer": {
         "schema": {}
       },

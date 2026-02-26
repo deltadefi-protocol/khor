@@ -10,14 +10,14 @@ import {
   OutputReference,
   ConStr1,
   MintingBlueprint,
-  PubKeyAddress,
-  ScriptAddress,
-  Pairs,
-  AssetName,
-  Integer,
   ConStr2,
   List,
+  Integer,
   WithdrawalBlueprint,
+  AssetName,
+  Pairs,
+  PubKeyAddress,
+  ScriptAddress,
 } from "@meshsdk/core";
 
 const version = "V3";
@@ -37,7 +37,7 @@ export class SwapOracleSpendBlueprint extends SpendingBlueprint {
   }
 
   params = (data: [PolicyId]): [PolicyId] => data;
-  datum = (data: VaultOracleDatum): VaultOracleDatum => data;
+  datum = (data: OracleDatum): OracleDatum => data;
   redeemer = (data: Data): Data => data;
 }
 
@@ -65,28 +65,15 @@ export class SwapIntentSpendBlueprint extends SpendingBlueprint {
   }
 
   params = (data: [PolicyId]): [PolicyId] => data;
-  datum = (data: SwapIntentDatum): SwapIntentDatum => data;
-  redeemer = (data: Data): Data => data;
-}
-
-export class SwapIntentMintBlueprint extends MintingBlueprint {
-  compiledCode: string;
-
-  constructor(params: [PolicyId]) {
-    const compiledCode = blueprint.validators[5]!.compiledCode;
-    super(version);
-    this.compiledCode = compiledCode;
-    this.paramScript(compiledCode, params, "JSON");
-  }
-
-  params = (data: [PolicyId]): [PolicyId] => data;
+  datum = (data: Data): Data => data;
+  redeemer = (data: SpendRedeemer): SpendRedeemer => data;
 }
 
 export class SwapIntentWithdrawBlueprint extends WithdrawalBlueprint {
   compiledCode: string;
 
   constructor(networkId: 0 | 1, params: [PolicyId]) {
-    const compiledCode = blueprint.validators[6]!.compiledCode;
+    const compiledCode = blueprint.validators[5]!.compiledCode;
     super(version, networkId);
     this.compiledCode = compiledCode;
     this.paramScript(compiledCode, params, "JSON");
@@ -99,7 +86,7 @@ export class SwapIntentPublishBlueprint extends WithdrawalBlueprint {
   compiledCode: string;
 
   constructor(networkId: 0 | 1, params: [PolicyId]) {
-    const compiledCode = blueprint.validators[7]!.compiledCode;
+    const compiledCode = blueprint.validators[6]!.compiledCode;
     super(version, networkId);
     this.compiledCode = compiledCode;
     this.paramScript(compiledCode, params, "JSON");
@@ -110,7 +97,7 @@ export class SwapIntentPublishBlueprint extends WithdrawalBlueprint {
 
 export type Data = any;
 
-export type VaultOracleDatum = ConStr0<
+export type OracleDatum = ConStr0<
   [Credential, ByteString, PubKeyHash, PubKeyHash]
 >;
 
@@ -119,6 +106,18 @@ export type MintPolarity = RMint | RBurn;
 export type RMint = ConStr0<[]>;
 
 export type RBurn = ConStr1<[]>;
+
+export type SpendRedeemer = ProcessSwap | CancelIntent | SpamPrevention;
+
+export type ProcessSwap = ConStr0<[]>;
+
+export type CancelIntent = ConStr1<[]>;
+
+export type SpamPrevention = ConStr2<[]>;
+
+export type SwapIntentWithdrawRedeemer = ProcessIntent;
+
+export type ProcessIntent = ConStr0<[List<Integer>]>;
 
 export type SwapIntentDatum = ConStr0<
   [
@@ -133,15 +132,3 @@ export type SwapIntentDatum = ConStr0<
 export type MValue = Pairs<PolicyId, Pairs<AssetName, Integer>>;
 
 export type Lovelace = any;
-
-export type IntentRedeemer = MintIntent | BurnIntent | CancelIntent;
-
-export type MintIntent = ConStr0<[]>;
-
-export type BurnIntent = ConStr1<[]>;
-
-export type CancelIntent = ConStr2<[]>;
-
-export type SwapIntentWithdrawRedeemer = ProcessIntent;
-
-export type ProcessIntent = ConStr0<[List<Integer>]>;

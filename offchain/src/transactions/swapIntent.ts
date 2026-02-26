@@ -2,28 +2,20 @@ import {
   Asset,
   byteString,
   MeshValue,
-  pubKeyAddress,
   resolveSlotNo,
-  scriptAddress,
-  serializeAddressObj,
   TxInput,
   UTxO,
 } from "@meshsdk/core";
 import { KhorTxBuilder, TxParams, TxComplete } from "../lib/common";
 import { KhorConfig } from "../lib/constant";
-import {
-  SwapIntentSpendBlueprint,
-  SwapIntentMintBlueprint,
-  SwapIntentWithdrawBlueprint,
-} from "../lib/bar";
+import { SwapIntentSpendBlueprint } from "../lib/bar";
 import {
   swapIntentDatum,
-  mintIntent,
-  burnIntent,
   cancelIntent,
   processIntent,
   parseSwapIntentDatum,
   parseVaultOracleDatum,
+  processSwap,
 } from "../lib/types";
 import { csl, OfflineEvaluator } from "@meshsdk/core-csl";
 
@@ -116,11 +108,8 @@ export interface ProcessSwapIntentsParams extends TxParams {
 
 export class SwapIntentTx extends KhorTxBuilder {
   private swapIntentSpend: SwapIntentSpendBlueprint;
-  private swapIntentMint: SwapIntentMintBlueprint;
-  private swapIntentWithdraw: SwapIntentWithdrawBlueprint;
   private swapIntentScriptHash: string;
   private swapIntentAddress: string;
-  private swapIntentPolicyId: string;
 
   constructor(config: KhorConfig) {
     super(config);
@@ -130,21 +119,12 @@ export class SwapIntentTx extends KhorTxBuilder {
     this.swapIntentSpend = new SwapIntentSpendBlueprint(config.networkId, [
       byteString(oracleNftPolicyId),
     ]);
-    this.swapIntentMint = new SwapIntentMintBlueprint([
-      byteString(oracleNftPolicyId),
-    ]);
-    this.swapIntentWithdraw = new SwapIntentWithdrawBlueprint(
-      config.networkId,
-      [byteString(oracleNftPolicyId)],
-    );
 
     this.swapIntentScriptHash = this.swapIntentSpend.hash;
     this.swapIntentAddress = this.swapIntentSpend.address;
-    this.swapIntentPolicyId = this.swapIntentMint.hash;
   }
 
   getSwapIntentAddress = (): string => this.swapIntentAddress;
-  getSwapIntentPolicyId = (): string => this.swapIntentPolicyId;
   getSwapIntentScriptHash = (): string => this.swapIntentScriptHash;
 
   /**
@@ -170,7 +150,6 @@ export class SwapIntentTx extends KhorTxBuilder {
     outputValue.addAssets([
       { unit: "lovelace", quantity: params.deposit.toString() },
     ]); // Add deposit to output value
-    outputValue.addAssets([{ unit: this.swapIntentPolicyId, quantity: "1" }]);
 
     txBuilder
       .readOnlyTxInReference(
@@ -178,15 +157,6 @@ export class SwapIntentTx extends KhorTxBuilder {
         params.oracleUtxo.input.outputIndex,
         0,
       )
-      .mintPlutusScriptV3()
-      .mint("1", this.swapIntentPolicyId, "")
-      .mintTxInReference(
-        this.config.refScripts.swapIntent.txHash,
-        this.config.refScripts.swapIntent.outputIndex,
-        (this.swapIntentMint.cbor.length / 2).toString(),
-        this.swapIntentMint.hash,
-      )
-      .mintRedeemerValue(mintIntent(), "JSON")
       .txOut(this.swapIntentAddress, outputValue.toAssets())
       .txOutInlineDatumValue(datum, "JSON");
 
@@ -214,11 +184,6 @@ export class SwapIntentTx extends KhorTxBuilder {
       throw new Error("Invalid swap intent UTxO");
     }
 
-    // Calculate return amount (locked fromAmount minus the burned token)
-    const returnAssets = intentUtxo.output.amount.filter(
-      (a) => a.unit !== this.swapIntentPolicyId,
-    );
-
     txBuilder
       .readOnlyTxInReference(
         params.oracleUtxo.input.txHash,
@@ -235,25 +200,15 @@ export class SwapIntentTx extends KhorTxBuilder {
         0,
       )
       .txInInlineDatumPresent()
-      .txInRedeemerValue("", "Mesh")
+      .txInRedeemerValue(cancelIntent(), "JSON")
       .spendingTxInReference(
         this.config.refScripts.swapIntent.txHash,
         this.config.refScripts.swapIntent.outputIndex,
         (this.swapIntentSpend.cbor.length / 2).toString(),
         this.swapIntentSpend.hash,
       )
-      // Burn the intent token
-      .mintPlutusScriptV3()
-      .mint("-1", this.swapIntentPolicyId, "")
-      .mintTxInReference(
-        this.config.refScripts.swapIntent.txHash,
-        this.config.refScripts.swapIntent.outputIndex,
-        (this.swapIntentMint.cbor.length / 2).toString(),
-        this.swapIntentMint.hash,
-      )
-      .mintRedeemerValue(cancelIntent(), "JSON")
       // Send locked funds back to user's account address
-      .txOut(intentInfo.accountAddress, returnAssets)
+      .txOut(intentInfo.accountAddress, intentUtxo.output.amount)
       .invalidBefore(intentInfo.createdAt + 600); // 10 minutes after creation
 
     const txHex = await txBuilder.complete();
@@ -360,7 +315,7 @@ export class SwapIntentTx extends KhorTxBuilder {
             0,
           )
           .txInInlineDatumPresent()
-          .txInRedeemerValue("", "Mesh", exUnits?.spend)
+          .txInRedeemerValue(processSwap(), "JSON", exUnits?.spend)
           .spendingTxInReference(
             this.config.refScripts.swapIntent.txHash,
             this.config.refScripts.swapIntent.outputIndex,
@@ -368,18 +323,6 @@ export class SwapIntentTx extends KhorTxBuilder {
             this.swapIntentSpend.hash,
           );
       }
-
-      // Burn all intent tokens
-      txBuilder
-        .mintPlutusScriptV3()
-        .mint(burnAmount, this.swapIntentPolicyId, "")
-        .mintTxInReference(
-          this.config.refScripts.swapIntent.txHash,
-          this.config.refScripts.swapIntent.outputIndex,
-          (this.swapIntentMint.cbor.length / 2).toString(),
-          this.swapIntentMint.hash,
-        )
-        .mintRedeemerValue(burnIntent(), "JSON", exUnits?.mint);
 
       // Add vault return output
       if (vaultReturnValue.length > 0) {
@@ -401,12 +344,12 @@ export class SwapIntentTx extends KhorTxBuilder {
       // Withdrawal validator for batch processing
       txBuilder
         .withdrawalPlutusScriptV3()
-        .withdrawal(this.swapIntentWithdraw.address, "0")
+        .withdrawal(this.swapIntentSpend.address, "0")
         .withdrawalTxInReference(
           this.config.refScripts.swapIntent.txHash,
           this.config.refScripts.swapIntent.outputIndex,
-          (this.swapIntentWithdraw.cbor.length / 2).toString(),
-          this.swapIntentWithdraw.hash,
+          (this.swapIntentSpend.cbor.length / 2).toString(),
+          this.swapIntentSpend.hash,
         )
         .withdrawalRedeemerValue(
           processIntent(userOutputIndices),
@@ -438,8 +381,6 @@ export class SwapIntentTx extends KhorTxBuilder {
     for (const result of evalResult) {
       if (result.tag === "SPEND") {
         exUnits.spend = { mem: result.budget.mem, steps: result.budget.steps };
-      } else if (result.tag === "MINT") {
-        exUnits.mint = { mem: result.budget.mem, steps: result.budget.steps };
       } else if (result.tag === "REWARD") {
         exUnits.withdraw = {
           mem: result.budget.mem,

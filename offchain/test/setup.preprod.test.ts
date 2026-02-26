@@ -7,10 +7,10 @@ import {
 } from "@meshsdk/core";
 import { SetupTx } from "../src/transactions/setup";
 import { createConfig } from "../src/lib/constant";
-import { VaultOracleInfo } from "../src/lib/types";
+import { OracleInfo } from "../src/lib/types";
 import {
   OracleNftMintBlueprint,
-  SwapIntentMintBlueprint,
+  SwapIntentSpendBlueprint,
 } from "../src/lib/bar";
 
 // Skip tests if env vars not set
@@ -84,7 +84,7 @@ describeIfConfigured("SetupTx (preprod)", () => {
       // Get the swap intent script hash (needed for oracle datum)
       // Note: This uses a placeholder oracle NFT policy ID, which means
       // the actual swap intent script hash will need the real policy ID
-      const swapIntentMint = new SwapIntentMintBlueprint([
+      const swapIntentSpend = new SwapIntentSpendBlueprint(0, [
         byteString(oracleNftPolicyId),
       ]);
 
@@ -101,10 +101,10 @@ describeIfConfigured("SetupTx (preprod)", () => {
       const operatorAddress = await operatorWallet.getChangeAddress();
       const operatorVKey = deserializeAddress(operatorAddress).pubKeyHash;
 
-      const oracleInfo: VaultOracleInfo = {
+      const oracleInfo: OracleInfo = {
         vaultScriptHash: operatorVKey, // Use wallet address as vault (pubkey vault)
         isVaultScript: false,
-        swapIntentScriptHash: swapIntentMint.hash,
+        swapIntentScriptHash: swapIntentSpend.hash,
         operatorKey: operatorVKey,
         ddKey: ddVKey,
       };

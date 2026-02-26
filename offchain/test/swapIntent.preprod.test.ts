@@ -177,12 +177,8 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
 
       // Find an existing swap intent UTxO
       const swapIntentAddress = swapIntentTx.getSwapIntentAddress();
-      const swapIntentPolicyId = swapIntentTx.getSwapIntentPolicyId();
 
-      const intentUtxos = await blockfrost.fetchAddressUTxOs(
-        swapIntentAddress,
-        swapIntentPolicyId,
-      );
+      const intentUtxos = await blockfrost.fetchAddressUTxOs(swapIntentAddress);
 
       if (intentUtxos.length === 0 || !collateral || collateral.length === 0) {
         console.log("No swap intent UTxOs or collateral found - skipping");
@@ -221,12 +217,8 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
     it("should build and sign process swap intents transaction with DD and Operator", async () => {
       // Find swap intent UTxOs to process
       const swapIntentAddress = swapIntentTx.getSwapIntentAddress();
-      const swapIntentPolicyId = swapIntentTx.getSwapIntentPolicyId();
 
-      const intentUtxos = await blockfrost.fetchAddressUTxOs(
-        swapIntentAddress,
-        swapIntentPolicyId,
-      );
+      const intentUtxos = await blockfrost.fetchAddressUTxOs(swapIntentAddress);
 
       if (intentUtxos.length === 0) {
         console.log("No swap intent UTxOs found to process - skipping");

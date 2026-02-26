@@ -7,11 +7,11 @@ import {
   SwapIntentSpendBlueprint,
   SwapIntentWithdrawBlueprint,
 } from "../lib/bar";
-import { vaultOracleDatum, VaultOracleInfo, rMint } from "../lib/types";
+import { oracleDatum, OracleInfo, rMint } from "../lib/types";
 
 export interface MintOracleNftParams extends TxParams {
   paramUtxo: UTxO;
-  oracleInfo: VaultOracleInfo;
+  oracleInfo: OracleInfo;
 }
 
 export interface TxOutRefScriptsParams extends TxParams {
@@ -47,7 +47,7 @@ export class SetupTx extends KhorTxBuilder {
     ]);
     const oracleAddress = oracleSpend.address;
 
-    const datum = vaultOracleDatum(params.oracleInfo);
+    const datum = oracleDatum(params.oracleInfo);
 
     txBuilder
       .txIn(

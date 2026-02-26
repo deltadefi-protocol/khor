@@ -5,7 +5,7 @@ use mocktail.{
   add_extra_signatory, add_input, add_output, complete, mock_output,
   mock_tx_hash, mock_utxo_ref, mocktail_tx, ref_tx_in, ref_tx_in_inline_datum,
 }
-use swap_intent/spend_mint_withdraw_publish as swap_intent_spend_mint_withdraw_publish
+use swap_intent/spend_withdraw_publish as swap_intent_spend_mint_withdraw_publish
 use tests/swap_utils/process_batch.{
   intent_input_a, intent_input_b, intent_input_c, intent_output_a,
   intent_output_b, intent_output_c, intent_output_value_a, intent_output_value_b,

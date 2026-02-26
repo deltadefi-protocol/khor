@@ -6,7 +6,7 @@ use mocktail.{
   mock_utxo_ref, mocktail_tx, ref_tx_in, ref_tx_in_inline_datum,
 }
 use mocktail/virgin_outputs.{mock_output}
-use swap_intent/spend_mint_withdraw_publish as swap_intent_spend_mint_withdraw_publish
+use swap_intent/spend_withdraw_publish as swap_intent_spend_withdraw_publish
 use tests/swap_utils/process_batch.{
   intent_input_c, intent_output_c, intent_output_value_c, m_value_c_from,
 }
@@ -149,7 +149,7 @@ test swap_batch_limit_test() {
   let redeemer = ProcessIntent(indices)
   let tx = mock_burn_swap_intent_tx()
 
-  swap_intent_spend_mint_withdraw_publish.swap_intent.withdraw(
+  swap_intent_spend_withdraw_publish.swap_intent.withdraw(
     mock_vault_oracle,
     redeemer,
     Script(mock_swap_script_hash),
