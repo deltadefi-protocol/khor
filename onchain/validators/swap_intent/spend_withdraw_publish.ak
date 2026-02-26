@@ -31,13 +31,14 @@ validator swap_intent(oracle_nft: PolicyId) {
       ..
     } = self
 
-    let oracle_input_datum: OracleDatum =
-      reference_inputs |> get_oracle_datum(oracle_nft)
-
-    let OracleDatum { dd_key, swap_script_hash, .. } = oracle_input_datum
-
     when redeemer is {
-      ProcessSwap -> withdrawal_script_validated(withdrawals, swap_script_hash)
+      ProcessSwap -> {
+        let oracle_input_datum: OracleDatum =
+          reference_inputs |> get_oracle_datum(oracle_nft)
+
+        let OracleDatum { swap_script_hash, .. } = oracle_input_datum
+        withdrawal_script_validated(withdrawals, swap_script_hash)
+      }
       CancelIntent -> {
         expect Some(own_input) = find_input(inputs, input)
 
@@ -69,6 +70,11 @@ validator swap_intent(oracle_nft: PolicyId) {
         }
       }
       SpamPrevention -> {
+        let oracle_input_datum: OracleDatum =
+          reference_inputs |> get_oracle_datum(oracle_nft)
+
+        let OracleDatum { dd_key, .. } = oracle_input_datum
+
         let is_dd_key_signed = key_signed(extra_signatories, dd_key)
 
         let datum_check =
