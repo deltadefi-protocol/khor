@@ -14,25 +14,19 @@
 
 ## User Action - Spend
 
-1. Process Intent
+1. `ProcessSwap`
    - Withdrawal script with own `script_hash` is validated in `withdrawals`
 
-## User Action - Mint
-
-1. Mint - Redeemer `MintIntent`
-   - Exactly 1 intent token is minted under own `policy_id` with asset name `""`
-   - Exactly 1 output at own script address carrying own `policy_id`
-   - That output's value is exactly `from_asset_list(from_amount) + deposit + 1 intent_token`
-   - That output carries an inline `SwapIntentDatum`
-
-2. Burn - Redeemer `BurnIntent`
-   - Withdrawal script with own `policy_id` is validated in `withdrawals`
-
-3. Burn - Redeemer `CancelIntent`
+2. `CancelIntent`
    - time >= created_at + 10mins (600)
    - either:
      - signed by account_address
      - input value send back to account_address
+
+3. `SpamPrevention`
+   - `dd_key` from `VaultOracleDatum` must sign
+   - datum type malformed
+   - `created_at` in future or passed 24hrs
 
 ## User Action - Withdraw
 
@@ -43,7 +37,6 @@
      - `outputs[index].value` >= `to_amount` (per asset)
      - Accumulate `vault_net_outflow` += `outputs[index].value` − `from_amount`
    - Fail if more swap intent inputs than indices, or leftover indices remain after all inputs
-   - Intent tokens burned == `−length(indices)`
    - `value_from_vault` == `value_to_vault` + `vault_net_outflow` + `fee`
    - Both `operator_key` and `dd_key` from `VaultOracleDatum` must sign
 

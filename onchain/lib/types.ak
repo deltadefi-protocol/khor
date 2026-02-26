@@ -13,7 +13,7 @@ pub type MintPolarity {
 
 pub type OracleDatum {
   operator_cred: Credential,
-  swap_intent_script_hash: ByteArray,
+  swap_script_hash: ByteArray,
   operator_key: VerificationKeyHash,
   dd_key: VerificationKeyHash,
 }
@@ -27,10 +27,10 @@ pub type SwapIntentDatum {
   deposit: Lovelace,
 }
 
-pub type IntentRedeemer {
-  MintIntent
-  BurnIntent
+pub type SpendRedeemer {
+  ProcessSwap
   CancelIntent
+  SpamPrevention
 }
 
 pub type SwapIntentWithdrawRedeemer {

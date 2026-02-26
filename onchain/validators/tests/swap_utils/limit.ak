@@ -11,9 +11,8 @@ use tests/swap_utils/process_batch.{
   intent_input_c, intent_output_c, intent_output_value_c, m_value_c_from,
 }
 use tests/utils.{
-  mock_dd_key, mock_operator_cred, mock_operator_key,
-  mock_swap_intent_script_hash, mock_vault_oracle, mock_vault_oracle_address,
-  mock_vault_oracle_datum,
+  mock_dd_key, mock_operator_cred, mock_operator_key, mock_swap_script_hash,
+  mock_vault_oracle, mock_vault_oracle_address, mock_vault_oracle_datum,
 }
 use types.{ProcessIntent}
 
@@ -100,7 +99,7 @@ fn mock_burn_swap_intent_tx() -> Transaction {
         mock_vault_oracle_address,
       )
     |> ref_tx_in_inline_datum(True, mock_vault_oracle_datum)
-    |> mint(True, -intent_burn_amount, mock_swap_intent_script_hash, "")
+    |> mint(True, -intent_burn_amount, mock_swap_script_hash, "")
     |> complete()
     |> add_input(True, intent_input_c)
     |> add_input(True, intent_input_c)
@@ -153,7 +152,7 @@ test swap_batch_limit_test() {
   swap_intent_spend_mint_withdraw_publish.swap_intent.withdraw(
     mock_vault_oracle,
     redeemer,
-    Script(mock_swap_intent_script_hash),
+    Script(mock_swap_script_hash),
     tx,
   )
 }

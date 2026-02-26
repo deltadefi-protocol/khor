@@ -5,7 +5,7 @@ use mocktail.{mock_output, mock_pub_key_address, mock_utxo_ref}
 use swap_utils.{
   calculate_vault_net_outflow, process_batched_swap_intent_validation,
 }
-use tests/utils.{mock_created_at, mock_swap_intent_script_hash}
+use tests/utils.{mock_created_at, mock_swap_script_hash}
 use types.{SwapIntentDatum}
 
 pub const m_value_a_from = [Pair("", [Pair("", 1000000)])]
@@ -42,7 +42,7 @@ pub const intent_input_a =
   Input {
     output_reference: mock_utxo_ref(0, 0),
     output: mock_output(
-      from_script(mock_swap_intent_script_hash),
+      from_script(mock_swap_script_hash),
       from_asset_list(m_value_a_from),
       InlineDatum(swap_intent_datum_a),
       None,
@@ -83,7 +83,7 @@ pub const intent_input_b =
   Input {
     output_reference: mock_utxo_ref(1, 0),
     output: mock_output(
-      from_script(mock_swap_intent_script_hash),
+      from_script(mock_swap_script_hash),
       from_asset_list(m_value_b_from),
       InlineDatum(swap_intent_datum_b),
       None,
@@ -141,7 +141,7 @@ pub const intent_input_c =
   Input {
     output_reference: mock_utxo_ref(2, 0),
     output: mock_output(
-      from_script(mock_swap_intent_script_hash),
+      from_script(mock_swap_script_hash),
       from_asset_list(m_value_c_from),
       InlineDatum(swap_intent_datum_c),
       None,
@@ -204,7 +204,7 @@ test process_batch_normal() {
     inputs,
     outputs,
     indices,
-    mock_swap_intent_script_hash,
+    mock_swap_script_hash,
   ) == (
     calculate_vault_net_outflow(
       m_value_a_from,
@@ -230,7 +230,7 @@ test process_batch_excessive_inputs() fail {
     excessive_inputs,
     outputs,
     indices,
-    mock_swap_intent_script_hash,
+    mock_swap_script_hash,
   ) == (
     calculate_vault_net_outflow(
       m_value_a_from,
@@ -254,7 +254,7 @@ test process_batch_insufficient_inputs() fail {
     insufficient_inputs,
     outputs,
     indices,
-    mock_swap_intent_script_hash,
+    mock_swap_script_hash,
   ) == (
     calculate_vault_net_outflow(
       m_value_a_from,
@@ -280,7 +280,7 @@ test process_batch_incorrect_outputs() fail {
     inputs,
     incorrect_outputs,
     indices,
-    mock_swap_intent_script_hash,
+    mock_swap_script_hash,
   ) == (
     calculate_vault_net_outflow(
       m_value_a_from,
@@ -306,7 +306,7 @@ test process_batch_incorrect_indices() fail {
     inputs,
     outputs,
     incorrect_indices,
-    mock_swap_intent_script_hash,
+    mock_swap_script_hash,
   ) == (
     calculate_vault_net_outflow(
       m_value_a_from,
@@ -332,7 +332,7 @@ test process_batch_excessive_indices() fail {
     inputs,
     outputs,
     excessive_indices,
-    mock_swap_intent_script_hash,
+    mock_swap_script_hash,
   ) == (
     calculate_vault_net_outflow(
       m_value_a_from,

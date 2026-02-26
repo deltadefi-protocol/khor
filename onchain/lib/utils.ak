@@ -3,10 +3,8 @@ use aiken/collection/pairs.{has_key}
 use aiken/crypto.{ScriptHash}
 use cardano/address.{Credential, Script}
 use cardano/assets.{Lovelace, PolicyId, quantity_of}
-use cardano/transaction.{
-  DatumHash, InlineDatum, Input, NoDatum, Output, Redeemer, ScriptPurpose,
-}
-use types.{BurnIntent, IntentRedeemer, OracleDatum}
+use cardano/transaction.{DatumHash, InlineDatum, Input, NoDatum, Output}
+use types.{OracleDatum}
 
 pub fn get_oracle_datum(
   inputs: List<Input>,
@@ -42,19 +40,6 @@ pub fn get_vault_oracle_input(
           },
         )
   oracle_input
-}
-
-pub fn check_mint_redeemer_is_burn(
-  mint_purpose: ScriptPurpose,
-  redeemers: Pairs<ScriptPurpose, Redeemer>,
-) -> Bool {
-  expect Some(mint_redeemer_data) = redeemers |> pairs.get_first(mint_purpose)
-  expect mint_redeemer: IntentRedeemer = mint_redeemer_data
-
-  when mint_redeemer is {
-    BurnIntent -> True
-    _ -> False
-  }
 }
 
 pub fn withdrawal_script_validated(

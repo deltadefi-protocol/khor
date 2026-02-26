@@ -5,7 +5,7 @@
 ## Datum
 
 - `operator_cred`: ByteArray,
-- `swap_intent_script_hash`: ByteArray,
+- `swap_script_hash`: ByteArray,
 - `operator_key`: VerificationKeyHash
 
 ## User Action

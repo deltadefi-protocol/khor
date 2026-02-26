@@ -2,7 +2,7 @@ use cardano/address.{Address, Script}
 use cardano/assets.{add, from_asset, from_asset_list, merge}
 use cardano/transaction.{Input, NoDatum, Transaction}
 use mocktail.{
-  add_extra_signatory, add_input, add_output, complete, mint, mock_output,
+  add_extra_signatory, add_input, add_output, complete, mock_output,
   mock_tx_hash, mock_utxo_ref, mocktail_tx, ref_tx_in, ref_tx_in_inline_datum,
 }
 use swap_intent/spend_mint_withdraw_publish as swap_intent_spend_mint_withdraw_publish
@@ -12,9 +12,8 @@ use tests/swap_utils/process_batch.{
   intent_output_value_c, m_value_a_from, m_value_b_from, m_value_c_from,
 }
 use tests/utils.{
-  mock_dd_key, mock_operator_cred, mock_operator_key,
-  mock_swap_intent_script_hash, mock_vault_oracle, mock_vault_oracle_address,
-  mock_vault_oracle_datum,
+  mock_dd_key, mock_operator_cred, mock_operator_key, mock_swap_script_hash,
+  mock_vault_oracle, mock_vault_oracle_address, mock_vault_oracle_datum,
 }
 use types.{ProcessIntent}
 
@@ -22,7 +21,6 @@ const indices = [0, 1, 2]
 
 type WithdrawSwapIntentTestCase {
   is_vault_oracle_inputed: Bool,
-  is_intent_burn_amount_correct: Bool,
   is_signed: Bool,
   is_value_unlock_from_vault_correct: Bool,
 }
@@ -32,7 +30,6 @@ fn mock_withdraw_swap_intent_tx(
 ) -> Transaction {
   let WithdrawSwapIntentTestCase {
     is_vault_oracle_inputed,
-    is_intent_burn_amount_correct,
     is_signed,
     is_value_unlock_from_vault_correct,
   } = test_case
@@ -41,13 +38,6 @@ fn mock_withdraw_swap_intent_tx(
       from_asset(mock_vault_oracle, "", 1) |> add("", "", 2_000_000)
     } else {
       from_asset("", "", 1) |> add("", "", 1)
-    }
-
-  let intent_burn_amount =
-    if is_intent_burn_amount_correct {
-      3
-    } else {
-      3 + 1
     }
 
   let vault_input_a =
@@ -103,7 +93,6 @@ fn mock_withdraw_swap_intent_tx(
         mock_vault_oracle_address,
       )
     |> ref_tx_in_inline_datum(is_vault_oracle_inputed, mock_vault_oracle_datum)
-    |> mint(True, -intent_burn_amount, mock_swap_intent_script_hash, "")
     |> complete()
     |> add_input(True, intent_input_a)
     |> add_input(True, intent_input_b)
@@ -123,7 +112,6 @@ test s1_mint_success_burn_swap_intent() {
     mock_withdraw_swap_intent_tx(
       WithdrawSwapIntentTestCase {
         is_vault_oracle_inputed: True,
-        is_intent_burn_amount_correct: True,
         is_signed: True,
         is_value_unlock_from_vault_correct: True,
       },
@@ -132,7 +120,7 @@ test s1_mint_success_burn_swap_intent() {
   swap_intent_spend_mint_withdraw_publish.swap_intent.withdraw(
     mock_vault_oracle,
     redeemer,
-    Script(mock_swap_intent_script_hash),
+    Script(mock_swap_script_hash),
     tx,
   )
 }
@@ -143,7 +131,6 @@ test s1_mint_fail_burn_swap_intent_with_no_vault_oracle_input() fail {
     mock_withdraw_swap_intent_tx(
       WithdrawSwapIntentTestCase {
         is_vault_oracle_inputed: False,
-        is_intent_burn_amount_correct: True,
         is_signed: True,
         is_value_unlock_from_vault_correct: True,
       },
@@ -152,27 +139,7 @@ test s1_mint_fail_burn_swap_intent_with_no_vault_oracle_input() fail {
   swap_intent_spend_mint_withdraw_publish.swap_intent.withdraw(
     mock_vault_oracle,
     redeemer,
-    Script(mock_swap_intent_script_hash),
-    tx,
-  )
-}
-
-test s1_mint_fail_burn_swap_intent_with_incorrect_intent_burn_amount() {
-  let redeemer = ProcessIntent(indices)
-  let tx =
-    mock_withdraw_swap_intent_tx(
-      WithdrawSwapIntentTestCase {
-        is_vault_oracle_inputed: True,
-        is_intent_burn_amount_correct: False,
-        is_signed: True,
-        is_value_unlock_from_vault_correct: True,
-      },
-    )
-
-  !swap_intent_spend_mint_withdraw_publish.swap_intent.withdraw(
-    mock_vault_oracle,
-    redeemer,
-    Script(mock_swap_intent_script_hash),
+    Script(mock_swap_script_hash),
     tx,
   )
 }
@@ -183,7 +150,6 @@ test s1_mint_fail_burn_swap_intent_with_unsigned() {
     mock_withdraw_swap_intent_tx(
       WithdrawSwapIntentTestCase {
         is_vault_oracle_inputed: True,
-        is_intent_burn_amount_correct: True,
         is_signed: False,
         is_value_unlock_from_vault_correct: True,
       },
@@ -192,7 +158,7 @@ test s1_mint_fail_burn_swap_intent_with_unsigned() {
   !swap_intent_spend_mint_withdraw_publish.swap_intent.withdraw(
     mock_vault_oracle,
     redeemer,
-    Script(mock_swap_intent_script_hash),
+    Script(mock_swap_script_hash),
     tx,
   )
 }
@@ -203,7 +169,6 @@ test s1_mint_fail_burn_swap_intent_with_incorrect_value_unlock_from_vault() {
     mock_withdraw_swap_intent_tx(
       WithdrawSwapIntentTestCase {
         is_vault_oracle_inputed: True,
-        is_intent_burn_amount_correct: True,
         is_signed: True,
         is_value_unlock_from_vault_correct: False,
       },
@@ -212,7 +177,7 @@ test s1_mint_fail_burn_swap_intent_with_incorrect_value_unlock_from_vault() {
   !swap_intent_spend_mint_withdraw_publish.swap_intent.withdraw(
     mock_vault_oracle,
     redeemer,
-    Script(mock_swap_intent_script_hash),
+    Script(mock_swap_script_hash),
     tx,
   )
 }
