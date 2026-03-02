@@ -3,8 +3,9 @@ import {
   UTxO,
   MeshTxBuilderOptions,
   TxInput,
+  Asset,
 } from "@meshsdk/core";
-import { OfflineEvaluator } from "@meshsdk/core-csl";
+import { OfflineEvaluator, csl } from "@meshsdk/core-csl";
 import { KhorConfig } from "./constant";
 
 export interface TxParams {
@@ -16,7 +17,81 @@ export interface TxParams {
 export interface TxComplete {
   txHex: string;
   spentUtxos: TxInput[];
+  newUtxos: UTxO[];
 }
+
+export const extractSpentUtxos = (txHex: string): TxInput[] => {
+  const cslTx = csl.FixedTransaction.from_hex(txHex);
+  const spentUtxos: TxInput[] = [];
+
+  for (let i = 0; i < cslTx.body().inputs().len(); i++) {
+    const input = cslTx.body().inputs().get(i);
+    spentUtxos.push({
+      txHash: input.transaction_id().to_hex(),
+      outputIndex: input.index(),
+    });
+  }
+
+  return spentUtxos;
+};
+
+export const extractNewUtxos = (txHex: string): UTxO[] => {
+  const cslTx = csl.FixedTransaction.from_hex(txHex);
+  const txHash = cslTx.transaction_hash().to_hex();
+  const outputs = cslTx.body().outputs();
+  const newUtxos: UTxO[] = [];
+
+  for (let i = 0; i < outputs.len(); i++) {
+    const output = outputs.get(i);
+    const address = output.address().to_bech32();
+
+    // Parse amount
+    const amount: Asset[] = [];
+    const coin = output.amount().coin().to_str();
+    amount.push({ unit: "lovelace", quantity: coin });
+
+    const multiAsset = output.amount().multiasset();
+    if (multiAsset) {
+      const policyIds = multiAsset.keys();
+      for (let p = 0; p < policyIds.len(); p++) {
+        const policyId = policyIds.get(p);
+        const assets = multiAsset.get(policyId);
+        if (assets) {
+          const assetNames = assets.keys();
+          for (let a = 0; a < assetNames.len(); a++) {
+            const assetName = assetNames.get(a);
+            const qty = assets.get(assetName);
+            if (qty) {
+              const unit = policyId.to_hex() + assetName.to_hex();
+              amount.push({ unit, quantity: qty.to_str() });
+            }
+          }
+        }
+      }
+    }
+
+    let plutusData: string | undefined;
+
+    const plutusDataField = output.plutus_data();
+    if (plutusDataField) {
+      plutusData = plutusDataField.to_hex();
+    }
+
+    newUtxos.push({
+      input: {
+        txHash,
+        outputIndex: i,
+      },
+      output: {
+        address,
+        amount,
+        plutusData,
+      },
+    });
+  }
+
+  return newUtxos;
+};
 
 export class KhorTxBuilder {
   constructor(public config: KhorConfig) {}

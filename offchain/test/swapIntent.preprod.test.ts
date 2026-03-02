@@ -142,13 +142,14 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
         changeAddress: userAddress,
         oracleUtxo,
         accountAddress: userAddress,
-        fromAmount: [{ unit: "lovelace", quantity: "5000000" }], // 5 ADA
-        toAmount: [
+        fromAmount: [
+          ,
           {
             unit: "c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d",
             quantity: "200000",
           },
-        ],
+        ], // 5 ADA
+        toAmount: [{ unit: "lovelace", quantity: "5000000" }],
         createdAt: Math.floor(Date.now() / 1000),
         deposit: 2000000, // 2 ADA deposit for swap intent
       };
@@ -156,17 +157,20 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
       console.log("Building createSwapIntent transaction...");
       const result = await swapIntentTx.createSwapIntent(params, blockfrost);
 
-      console.log("txHex length:", result.txHex.length);
+      console.log("txHex length:", result.txHex);
       expect(result.txHex).toBeDefined();
       expect(result.txHex.length).toBeGreaterThan(0);
+
+      console.log("Transaction spent UTxOs:", result.spentUtxos);
+      console.log("Transaction new UTxOs:", JSON.stringify(result.newUtxos));
 
       // Sign with User wallet
       const signedTx = await userWallet.signTx(result.txHex);
       console.log("Transaction signed successfully");
 
       // Uncomment to submit:
-      const txHash = await userWallet.submitTx(signedTx);
-      console.log("Submitted tx:", txHash);
+      // const txHash = await userWallet.submitTx(signedTx);
+      // console.log("Submitted tx:", txHash);
     }, 120000);
   });
 

@@ -11,6 +11,7 @@ import {
   MeshValue,
   serializeAddressObj,
 } from "@meshsdk/core";
+import { SwapOracleSpendBlueprint } from "./bar";
 import {
   CancelIntent,
   ProcessIntent,
@@ -117,4 +118,14 @@ export const parseVaultOracleDatum = (utxo: UTxO): OracleInfo | null => {
     console.error("Failed to parse VaultOracleDatum:", e);
     return null;
   }
+};
+
+export const getOracleAddress = (
+  oracleNftPolicyId: string,
+  networkId: 0 | 1,
+): string => {
+  const oracleSpend = new SwapOracleSpendBlueprint(networkId, [
+    byteString(oracleNftPolicyId),
+  ]);
+  return oracleSpend.address;
 };

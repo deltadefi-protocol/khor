@@ -6,12 +6,40 @@
   "browser": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "transactions": ["./dist/transactions/index.d.ts"],
+      "types": ["./dist/lib/types.d.ts"],
+      "config": ["./dist/lib/constant.d.ts"],
+      "blueprints": ["./dist/lib/bar.d.ts"]
+    }
+  },
   "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./transactions": {
+      "types": "./dist/transactions/index.d.ts",
+      "import": "./dist/transactions/index.js",
+      "require": "./dist/transactions/index.cjs"
+    },
+    "./types": {
+      "types": "./dist/lib/types.d.ts",
+      "import": "./dist/lib/types.js",
+      "require": "./dist/lib/types.cjs"
+    },
+    "./config": {
+      "types": "./dist/lib/constant.d.ts",
+      "import": "./dist/lib/constant.js",
+      "require": "./dist/lib/constant.cjs"
+    },
+    "./blueprints": {
+      "types": "./dist/lib/bar.d.ts",
+      "import": "./dist/lib/bar.js",
+      "require": "./dist/lib/bar.cjs"
     }
   },
   "files": [
@@ -19,8 +47,8 @@
   ],
   "scripts": {
     "prebuild": "cp ../onchain/plutus.json src/lib/plutus.json",
-    "build": "tsup src/index.ts --format esm,cjs --dts",
-    "dev": "tsup src/index.ts --format esm,cjs --watch --dts",
+    "build": "tsup src/index.ts src/transactions/index.ts src/lib/types.ts src/lib/constant.ts src/lib/bar.ts --format esm,cjs --dts",
+    "dev": "tsup src/index.ts src/transactions/index.ts src/lib/types.ts src/lib/constant.ts src/lib/bar.ts --format esm,cjs --watch --dts",
     "clean": "rm -rf .turbo && rm -rf dist && rm -rf node_modules",
     "test": "jest"
   },

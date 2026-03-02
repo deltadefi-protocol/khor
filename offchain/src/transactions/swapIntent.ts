@@ -3,11 +3,15 @@ import {
   byteString,
   MeshValue,
   resolveSlotNo,
-  TxInput,
-  TxParser,
   UTxO,
 } from "@meshsdk/core";
-import { KhorTxBuilder, TxParams, TxComplete } from "../lib/common";
+import {
+  KhorTxBuilder,
+  TxParams,
+  TxComplete,
+  extractSpentUtxos,
+  extractNewUtxos,
+} from "../lib/common";
 import { KhorConfig } from "../lib/constant";
 import {
   SwapIntentSpendBlueprint,
@@ -22,21 +26,6 @@ import {
   processSwap,
 } from "../lib/types";
 import { csl, OfflineEvaluator } from "@meshsdk/core-csl";
-
-const extractSpentUtxos = (txHex: string): TxInput[] => {
-  const cslTx = csl.Transaction.from_hex(txHex);
-  const spentUtxos: TxInput[] = [];
-
-  for (let i = 0; i < cslTx.body().inputs().len(); i++) {
-    const input = cslTx.body().inputs().get(i);
-    spentUtxos.push({
-      txHash: input.transaction_id().to_hex(),
-      outputIndex: input.index(),
-    });
-  }
-
-  return spentUtxos;
-};
 
 const selectUtxosForWithdrawal = (
   availableUtxos: UTxO[],
@@ -184,6 +173,7 @@ export class SwapIntentTx extends KhorTxBuilder {
     return {
       txHex,
       spentUtxos: extractSpentUtxos(txHex),
+      newUtxos: extractNewUtxos(txHex),
     };
   };
 
@@ -235,6 +225,7 @@ export class SwapIntentTx extends KhorTxBuilder {
     return {
       txHex,
       spentUtxos: extractSpentUtxos(txHex),
+      newUtxos: extractNewUtxos(txHex),
     };
   };
 
@@ -425,6 +416,7 @@ export class SwapIntentTx extends KhorTxBuilder {
     return {
       txHex,
       spentUtxos: extractSpentUtxos(txHex),
+      newUtxos: extractNewUtxos(txHex),
       feePerIntent,
       intentCount,
     };
