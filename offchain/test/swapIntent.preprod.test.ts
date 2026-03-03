@@ -142,7 +142,7 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
         changeAddress: userAddress,
         oracleUtxo,
         accountAddress: userAddress,
-        fromAmount: [{ unit: "lovelace", quantity: "50000000" }], // 5 ADA
+        fromAmount: [{ unit: "lovelace", quantity: "50000001" }], // 5 ADA
         toAmount: [
           {
             unit: "c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d",
