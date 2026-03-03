@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: 20
       - run: |
-          cd off-chain
+          cd offchain
           npm run ci
 
   publish-sdk:
@@ -27,7 +27,7 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org/
       - run: |
-          cd off-chain
+          cd offchain
           npm run ci
           npm publish --access public
         env:
