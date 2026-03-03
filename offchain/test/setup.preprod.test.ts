@@ -53,7 +53,7 @@ describeIfConfigured("SetupTx (preprod)", () => {
   describe("mintOracleNft", () => {
     it("should mint oracle NFT and create oracle UTxO", async () => {
       const utxos = await ddWallet.getUtxos();
-      const collateral = await ddWallet.getCollateral();
+      const collateral = await ddWallet.getCollateral("enterprise");
 
       if (utxos.length === 0) {
         throw new Error("No UTxOs available in test wallet");
@@ -149,7 +149,7 @@ describeIfConfigured("SetupTx (preprod)", () => {
       }
 
       const utxos = await ddWallet.getUtxos();
-      const collateral = await ddWallet.getCollateral();
+      const collateral = await ddWallet.getCollateral("enterprise");
 
       if (!collateral || collateral.length === 0) {
         throw new Error("No collateral set in test wallet");
@@ -202,7 +202,7 @@ describeIfConfigured("SetupTx (preprod)", () => {
       }
 
       const utxos = await ddWallet.getUtxos();
-      const collateral = await ddWallet.getCollateral();
+      const collateral = await ddWallet.getCollateral("enterprise");
 
       if (!collateral || collateral.length === 0) {
         throw new Error("No collateral set in test wallet");

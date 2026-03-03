@@ -142,14 +142,13 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
         changeAddress: userAddress,
         oracleUtxo,
         accountAddress: userAddress,
-        fromAmount: [
-          ,
+        fromAmount: [{ unit: "lovelace", quantity: "50000000" }], // 5 ADA
+        toAmount: [
           {
             unit: "c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d",
-            quantity: "200000",
+            quantity: "10000000",
           },
-        ], // 5 ADA
-        toAmount: [{ unit: "lovelace", quantity: "5000000" }],
+        ],
         createdAt: Math.floor(Date.now() / 1000),
         deposit: 2000000, // 2 ADA deposit for swap intent
       };
@@ -169,8 +168,8 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
       console.log("Transaction signed successfully");
 
       // Uncomment to submit:
-      // const txHash = await userWallet.submitTx(signedTx);
-      // console.log("Submitted tx:", txHash);
+      const txHash = await userWallet.submitTx(signedTx);
+      console.log("Submitted tx:", txHash);
     }, 120000);
   });
 
