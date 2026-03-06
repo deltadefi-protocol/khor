@@ -306,13 +306,15 @@ export class SwapIntentTx extends KhorTxBuilder {
         throw new Error("Script vault not yet implemented");
       } else {
         for (const vaultUtxo of selectedUtxos) {
-          txBuilder.txIn(
-            vaultUtxo.input.txHash,
-            vaultUtxo.input.outputIndex,
-            vaultUtxo.output.amount,
-            vaultUtxo.output.address,
-            0,
-          );
+          txBuilder
+            .txIn(
+              vaultUtxo.input.txHash,
+              vaultUtxo.input.outputIndex,
+              vaultUtxo.output.amount,
+              vaultUtxo.output.address,
+              0,
+            )
+            .inputForEvaluation(vaultUtxo);
         }
       }
 
