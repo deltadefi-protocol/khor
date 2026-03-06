@@ -336,7 +336,8 @@ export class SwapIntentTx extends KhorTxBuilder {
             this.config.refScripts.swapIntent.outputIndex,
             (this.swapIntentSpend.cbor.length / 2).toString(),
             this.swapIntentSpend.hash,
-          );
+          )
+          .inputForEvaluation(fill.utxo);
       }
 
       // Add vault return output
