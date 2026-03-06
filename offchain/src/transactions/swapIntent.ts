@@ -388,7 +388,19 @@ export class SwapIntentTx extends KhorTxBuilder {
       this.config.networkId === 0 ? "preprod" : "mainnet",
     );
 
-    const evalResult = await evaluator.evaluateTx(initialTxHex, [], []);
+    // Collect all UTxOs needed for evaluation
+    const additionalUtxos: UTxO[] = [
+      ...params.utxos,
+      params.oracleUtxo,
+      ...sortedFills.map((f) => f.utxo),
+      ...selectedUtxos,
+    ];
+
+    const evalResult = await evaluator.evaluateTx(
+      initialTxHex,
+      additionalUtxos,
+      [],
+    );
 
     // Parse evaluation result into exUnits
     const exUnits = {
