@@ -6,7 +6,7 @@ import {
   Asset,
 } from "@meshsdk/core";
 import { OfflineEvaluator, csl } from "@meshsdk/core-csl";
-import { KhorConfig } from "./constant";
+import { KhorConstants } from "./constant";
 
 export interface TxParams {
   utxos: UTxO[];
@@ -94,7 +94,7 @@ export const extractNewUtxos = (txHex: string): UTxO[] => {
 };
 
 export class KhorTxBuilder {
-  constructor(public config: KhorConfig) {}
+  constructor(public config: KhorConstants) {}
 
   newTxBuilder = (evaluateTx = true, fetcher?: any): MeshTxBuilder => {
     const txBuilderConfig: MeshTxBuilderOptions = {

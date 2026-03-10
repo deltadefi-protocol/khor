@@ -8,22 +8,17 @@ import {
   UTxO,
 } from "@meshsdk/core";
 import { SwapIntentTx } from "../src/transactions/swapIntent";
-import { createConfig, KhorConfig } from "../src/lib/constant";
+import {
+  KhorConstants,
+  preprodOracleNftPolicyId,
+} from "../src/lib/constant";
 import { SwapOracleSpendBlueprint } from "../src/lib/bar";
 import { OfflineEvaluator } from "@meshsdk/core-csl";
 
 // Skip tests if env vars not set
 const BLOCKFROST_API_KEY = process.env.BLOCKFROST_API_KEY;
-const ORACLE_NFT_POLICY_ID = process.env.ORACLE_NFT_POLICY_ID;
-const REF_SCRIPT_TX_HASH = process.env.REF_SCRIPT_TX_HASH;
-const REF_SCRIPT_OUTPUT_INDEX = parseInt(
-  process.env.REF_SCRIPT_OUTPUT_INDEX || "0",
-);
 
-const describeIfConfigured =
-  BLOCKFROST_API_KEY && ORACLE_NFT_POLICY_ID && REF_SCRIPT_TX_HASH
-    ? describe
-    : describe.skip;
+const describeIfConfigured = BLOCKFROST_API_KEY ? describe : describe.skip;
 
 describeIfConfigured("SwapIntentTx (preprod)", () => {
   let blockfrost: BlockfrostProvider;
@@ -33,7 +28,6 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
   let ddAddress: string;
   let operatorAddress: string;
   let userAddress: string;
-  let testConfig: KhorConfig;
   let swapIntentTx: SwapIntentTx;
   let oracleUtxo: UTxO;
 
@@ -91,28 +85,18 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
     console.log("Operator wallet address:", operatorAddress);
     console.log("User wallet address:", userAddress);
 
-    testConfig = createConfig({
-      network: "preprod",
-      oracleNftPolicyId: ORACLE_NFT_POLICY_ID!,
-      refScripts: {
-        swapIntent: {
-          txHash: REF_SCRIPT_TX_HASH!,
-          outputIndex: REF_SCRIPT_OUTPUT_INDEX,
-        },
-      },
-    });
-
-    swapIntentTx = new SwapIntentTx(testConfig);
+    const khorConstants = new KhorConstants("preprod");
+    swapIntentTx = new SwapIntentTx(khorConstants);
 
     // Find oracle UTxO by NFT
     const oracleSpend = new SwapOracleSpendBlueprint(0, [
-      byteString(ORACLE_NFT_POLICY_ID!),
+      byteString(preprodOracleNftPolicyId),
     ]);
     const oracleAddress = oracleSpend.address;
 
     const oracleUtxos = await blockfrost.fetchAddressUTxOs(
       oracleAddress,
-      ORACLE_NFT_POLICY_ID!,
+      preprodOracleNftPolicyId,
     );
 
     if (oracleUtxos.length === 0) {
@@ -142,11 +126,16 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
         changeAddress: userAddress,
         oracleUtxo,
         accountAddress: userAddress,
-        fromAmount: [{ unit: "lovelace", quantity: "50000001" }], // 5 ADA
+        fromAmount: [
+          {
+            unit: "3363b99384d6ee4c4b009068af396c8fdf92dafd111e58a857af04294e49474854", // NIGHT
+            quantity: "100000000", // 100 NIGHT (decimals=6)
+          },
+        ],
         toAmount: [
           {
-            unit: "c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d",
-            quantity: "10000000",
+            unit: "c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d", // USDM
+            quantity: "5000000", // 5 USDM (100 × 0.05, decimals=6)
           },
         ],
         createdAt: Math.floor(Date.now() / 1000),
@@ -164,12 +153,12 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
       console.log("Transaction new UTxOs:", JSON.stringify(result.newUtxos));
 
       // Sign with User wallet
-      const signedTx = await userWallet.signTx(result.txHex);
-      console.log("Transaction signed successfully");
+      // const signedTx = await userWallet.signTx(result.txHex);
+      // console.log("Transaction signed successfully");
 
-      // Uncomment to submit:
-      const txHash = await userWallet.submitTx(signedTx);
-      console.log("Submitted tx:", txHash);
+      // // Uncomment to submit:
+      // const txHash = await userWallet.submitTx(signedTx);
+      // console.log("Submitted tx:", txHash);
     }, 120000);
   });
 

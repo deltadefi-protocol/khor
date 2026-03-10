@@ -6,7 +6,7 @@ import {
   outputReference,
 } from "@meshsdk/core";
 import { SetupTx } from "../src/transactions/setup";
-import { createConfig } from "../src/lib/constant";
+import { KhorConstants } from "../src/lib/constant";
 import { OracleInfo } from "../src/lib/types";
 import {
   OracleNftMintBlueprint,
@@ -71,13 +71,8 @@ describeIfConfigured("SetupTx (preprod)", () => {
       ]).hash;
 
       // Create a temporary config (oracle NFT policy ID will be determined by paramUtxo)
-      const tempConfig = createConfig({
-        network: "preprod",
-        oracleNftPolicyId,
-        refScripts: {
-          swapIntent: { txHash: "", outputIndex: 0 },
-        },
-      });
+      const tempConfig = new KhorConstants("preprod");
+      tempConfig.oracleNftPolicyId = oracleNftPolicyId;
 
       const setupTx = new SetupTx(tempConfig);
 
@@ -156,13 +151,8 @@ describeIfConfigured("SetupTx (preprod)", () => {
       }
       const collateralUtxo = collateral[0]!;
 
-      const config = createConfig({
-        network: "preprod",
-        oracleNftPolicyId,
-        refScripts: {
-          swapIntent: { txHash: "", outputIndex: 0 },
-        },
-      });
+      const config = new KhorConstants("preprod");
+      config.oracleNftPolicyId = oracleNftPolicyId;
 
       const setupTx = new SetupTx(config);
 
@@ -209,13 +199,8 @@ describeIfConfigured("SetupTx (preprod)", () => {
       }
       const collateralUtxo = collateral[0]!;
 
-      const config = createConfig({
-        network: "preprod",
-        oracleNftPolicyId,
-        refScripts: {
-          swapIntent: { txHash: "", outputIndex: 0 },
-        },
-      });
+      const config = new KhorConstants("preprod");
+      config.oracleNftPolicyId = oracleNftPolicyId;
 
       const setupTx = new SetupTx(config);
 

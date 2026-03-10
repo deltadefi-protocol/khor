@@ -1,6 +1,6 @@
 import { byteString, UTxO, outputReference } from "@meshsdk/core";
 import { KhorTxBuilder, TxParams } from "../lib/common";
-import { KhorConfig } from "../lib/constant";
+import { KhorConstants } from "../lib/constant";
 import {
   OracleNftMintBlueprint,
   SwapOracleSpendBlueprint,
@@ -21,7 +21,7 @@ export interface TxOutRefScriptsParams extends TxParams {
 export interface RegisterCertsParams extends TxParams {}
 
 export class SetupTx extends KhorTxBuilder {
-  constructor(config: KhorConfig) {
+  constructor(config: KhorConstants) {
     super(config);
   }
 

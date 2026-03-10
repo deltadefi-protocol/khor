@@ -12,7 +12,7 @@ import {
   extractSpentUtxos,
   extractNewUtxos,
 } from "../lib/common";
-import { KhorConfig } from "../lib/constant";
+import { KhorConstants } from "../lib/constant";
 import {
   SwapIntentSpendBlueprint,
   SwapIntentWithdrawBlueprint,
@@ -115,7 +115,7 @@ export class SwapIntentTx extends KhorTxBuilder {
   private swapIntentScriptHash: string;
   private swapIntentAddress: string;
 
-  constructor(config: KhorConfig) {
+  constructor(config: KhorConstants) {
     super(config);
 
     const oracleNftPolicyId = config.oracleNftPolicyId;
@@ -153,6 +153,8 @@ export class SwapIntentTx extends KhorTxBuilder {
       createdAt: Number(slot),
       deposit: params.deposit,
     });
+
+    console.log("ggggg: " + JSON.stringify(datum));
 
     const outputValue = MeshValue.fromAssets(params.fromAmount);
     outputValue.addAssets([
