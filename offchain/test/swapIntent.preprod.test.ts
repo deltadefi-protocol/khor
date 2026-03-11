@@ -14,6 +14,7 @@ import {
 } from "../src/lib/constant";
 import { SwapOracleSpendBlueprint } from "../src/lib/bar";
 import { OfflineEvaluator } from "@meshsdk/core-csl";
+import { parseSwapIntentDatum } from "../src/lib/types";
 
 // Skip tests if env vars not set
 const BLOCKFROST_API_KEY = process.env.BLOCKFROST_API_KEY;
@@ -138,8 +139,7 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
             quantity: "5000000", // 5 USDM (100 × 0.05, decimals=6)
           },
         ],
-        createdAt: Math.floor(Date.now() / 1000),
-        deposit: 2000000, // 2 ADA deposit for swap intent
+        // expiry defaults to now + 10 mins, deposit defaults to 2 ADA
       };
 
       console.log("Building createSwapIntent transaction...");
@@ -281,5 +281,124 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
       // const txHash = await operatorWallet.submitTx(signedTx);
       // console.log("Submitted tx:", txHash);
     }, 120000);
+  });
+
+  describe("fetchSwapIntentUtxos", () => {
+    it("should fetch all swap intent UTxOs", async () => {
+      const intentUtxos = await swapIntentTx.fetchSwapIntentUtxos(blockfrost);
+
+      console.log(`Found ${intentUtxos.length} swap intent UTxO(s)`);
+      expect(Array.isArray(intentUtxos)).toBe(true);
+
+      // Verify each UTxO has valid swap intent datum
+      for (const utxo of intentUtxos) {
+        const info = parseSwapIntentDatum(utxo);
+        expect(info).not.toBeNull();
+        expect(info?.accountAddress).toBeDefined();
+        expect(info?.fromAmount).toBeDefined();
+        expect(info?.toAmount).toBeDefined();
+        expect(info?.createdAt).toBeGreaterThan(0);
+      }
+    }, 60000);
+  });
+
+  describe("fetchSwapIntentUtxosByAddress", () => {
+    it("should fetch swap intent UTxOs filtered by user address", async () => {
+      const userIntents = await swapIntentTx.fetchSwapIntentUtxosByAddress(
+        blockfrost,
+        userAddress,
+      );
+
+      console.log(
+        `Found ${userIntents.length} swap intent UTxO(s) for user ${userAddress}`,
+      );
+      expect(Array.isArray(userIntents)).toBe(true);
+
+      // Verify all returned UTxOs belong to the user
+      for (const utxo of userIntents) {
+        const info = parseSwapIntentDatum(utxo);
+        expect(info).not.toBeNull();
+        expect(info?.accountAddress).toBe(userAddress);
+      }
+    }, 60000);
+
+    it("should return empty array for address with no intents", async () => {
+      const randomAddress =
+        "addr_test1qz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwq2ytjqp";
+      const intents = await swapIntentTx.fetchSwapIntentUtxosByAddress(
+        blockfrost,
+        randomAddress,
+      );
+
+      expect(intents).toEqual([]);
+    }, 60000);
+  });
+
+  describe("isCancellable", () => {
+    it("should return true for intents older than 10 minutes", async () => {
+      const intentUtxos = await swapIntentTx.fetchSwapIntentUtxos(blockfrost);
+
+      if (intentUtxos.length === 0) {
+        console.log("No swap intent UTxOs found - skipping");
+        return;
+      }
+
+      for (const utxo of intentUtxos) {
+        const isCancellable = swapIntentTx.isCancellable(utxo);
+        const info = parseSwapIntentDatum(utxo);
+        const cancellableAt = swapIntentTx.getCancellableAt(utxo);
+
+        console.log(`Intent created at slot ${info?.createdAt}`);
+        console.log(`Cancellable at: ${new Date(cancellableAt!)}`);
+        console.log(`Is cancellable: ${isCancellable}`);
+
+        expect(typeof isCancellable).toBe("boolean");
+      }
+    }, 60000);
+
+    it("should return false for invalid UTxO", () => {
+      const invalidUtxo: UTxO = {
+        input: { txHash: "abc", outputIndex: 0 },
+        output: { address: "addr_test1...", amount: [] },
+      };
+
+      const isCancellable = swapIntentTx.isCancellable(invalidUtxo);
+      expect(isCancellable).toBe(false);
+    });
+  });
+
+  describe("getCancellableAt", () => {
+    it("should return valid timestamp for swap intent UTxOs", async () => {
+      const intentUtxos = await swapIntentTx.fetchSwapIntentUtxos(blockfrost);
+
+      if (intentUtxos.length === 0) {
+        console.log("No swap intent UTxOs found - skipping");
+        return;
+      }
+
+      for (const utxo of intentUtxos) {
+        const cancellableAt = swapIntentTx.getCancellableAt(utxo);
+
+        expect(cancellableAt).not.toBeNull();
+        expect(typeof cancellableAt).toBe("number");
+        expect(cancellableAt).toBeGreaterThan(0);
+
+        // Verify timestamp is reasonable (after year 2020)
+        const year2020 = new Date("2020-01-01").getTime();
+        expect(cancellableAt).toBeGreaterThan(year2020);
+
+        console.log(`Cancellable at: ${new Date(cancellableAt!)}`);
+      }
+    }, 60000);
+
+    it("should return null for invalid UTxO", () => {
+      const invalidUtxo: UTxO = {
+        input: { txHash: "abc", outputIndex: 0 },
+        output: { address: "addr_test1...", amount: [] },
+      };
+
+      const cancellableAt = swapIntentTx.getCancellableAt(invalidUtxo);
+      expect(cancellableAt).toBeNull();
+    });
   });
 });

@@ -3,7 +3,9 @@ import {
   byteString,
   MeshValue,
   resolveSlotNo,
+  IFetcher,
   UTxO,
+  SLOT_CONFIG_NETWORK,
 } from "@meshsdk/core";
 import {
   KhorTxBuilder,
@@ -24,6 +26,7 @@ import {
   parseSwapIntentDatum,
   parseVaultOracleDatum,
   processSwap,
+  DEFAULT_DEPOSIT,
 } from "../lib/types";
 import { csl, OfflineEvaluator } from "@meshsdk/core-csl";
 
@@ -79,13 +82,15 @@ const selectUtxosForWithdrawal = (
   return { selectedUtxos, returnValue };
 };
 
+export const DEFAULT_EXPIRY_MS = 10 * 60 * 1000;
+
 export interface CreateSwapIntentParams extends TxParams {
   oracleUtxo: UTxO;
   accountAddress: string;
   fromAmount: Asset[];
   toAmount: Asset[];
-  createdAt: number;
-  deposit: number;
+  deposit?: number;
+  expiry?: number; // Duration in ms until intent expires (default: 10 mins)
 }
 
 export interface CancelSwapIntentParams extends TxParams {
@@ -136,6 +141,60 @@ export class SwapIntentTx extends KhorTxBuilder {
   getSwapIntentScriptHash = (): string => this.swapIntentScriptHash;
 
   /**
+   * Fetch all swap intent UTxOs at the script address
+   */
+  fetchSwapIntentUtxos = async (fetcher: IFetcher): Promise<UTxO[]> => {
+    return fetcher.fetchAddressUTxOs(this.swapIntentAddress);
+  };
+
+  /**
+   * Fetch swap intent UTxOs filtered by account address
+   */
+  fetchSwapIntentUtxosByAddress = async (
+    fetcher: IFetcher,
+    accountAddress: string,
+  ): Promise<UTxO[]> => {
+    const allUtxos = await this.fetchSwapIntentUtxos(fetcher);
+    return allUtxos.filter((utxo) => {
+      const info = parseSwapIntentDatum(utxo);
+      return info?.accountAddress === accountAddress;
+    });
+  };
+
+  /**
+   * Check if a swap intent UTxO is cancellable (10+ minutes after creation)
+   * Returns true if cancellable now, false otherwise
+   */
+  isCancellable = (swapIntentUtxo: UTxO): boolean => {
+    const info = parseSwapIntentDatum(swapIntentUtxo);
+    if (!info) return false;
+
+    const networkName = this.config.networkId === 0 ? "preprod" : "mainnet";
+    const currentSlot = Number(resolveSlotNo(networkName, Date.now()));
+    const cancellableAfterSlot = info.createdAt + 600;
+
+    return currentSlot >= cancellableAfterSlot;
+  };
+
+  /**
+   * Get cancellable timestamp for a swap intent UTxO
+   * Returns the Unix timestamp (in ms) when the intent becomes cancellable
+   */
+  getCancellableAt = (swapIntentUtxo: UTxO): number | null => {
+    const info = parseSwapIntentDatum(swapIntentUtxo);
+    if (!info) return null;
+
+    const networkName = this.config.networkId === 0 ? "preprod" : "mainnet";
+    const cancellableAfterSlot = info.createdAt + 600;
+    const slotConfig = SLOT_CONFIG_NETWORK[networkName];
+
+    return (
+      (cancellableAfterSlot - slotConfig.zeroSlot) * slotConfig.slotLength +
+      slotConfig.zeroTime
+    );
+  };
+
+  /**
    * Create a new swap intent - mints intent token and locks assets
    */
   createSwapIntent = async (
@@ -144,22 +203,26 @@ export class SwapIntentTx extends KhorTxBuilder {
   ): Promise<TxComplete> => {
     const txBuilder = this.newValidationTx(params, fetcher);
     const networkName = this.config.networkId === 0 ? "preprod" : "mainnet";
-    const slot = resolveSlotNo(networkName, params.createdAt * 1000 + 600); // 10 minutes after creation
+
+    const expiryDuration = params.expiry ?? DEFAULT_EXPIRY_MS;
+    const expirySlot = Number(
+      resolveSlotNo(networkName, Date.now() + expiryDuration),
+    );
+    // createdAt is 600 slots before expiry so that createdAt + 600 = expiry
+    const createdAtSlot = expirySlot - 600;
+
+    const deposit = params.deposit ?? DEFAULT_DEPOSIT;
 
     const datum = swapIntentDatum({
       accountAddress: params.accountAddress,
       fromAmount: params.fromAmount,
       toAmount: params.toAmount,
-      createdAt: Number(slot),
-      deposit: params.deposit,
+      createdAt: createdAtSlot,
+      deposit,
     });
 
-    console.log("ggggg: " + JSON.stringify(datum));
-
     const outputValue = MeshValue.fromAssets(params.fromAmount);
-    outputValue.addAssets([
-      { unit: "lovelace", quantity: params.deposit.toString() },
-    ]); // Add deposit to output value
+    outputValue.addAssets([{ unit: "lovelace", quantity: deposit.toString() }]); // Add deposit to output value
 
     txBuilder
       .readOnlyTxInReference(
@@ -356,7 +419,10 @@ export class SwapIntentTx extends KhorTxBuilder {
         const intentInfo = intentInfos[i]!;
         const outputValue = MeshValue.fromAssets(fill.outputAmount);
         outputValue.addAssets([
-          { unit: "lovelace", quantity: intentInfo.deposit.toString() },
+          {
+            unit: "lovelace",
+            quantity: (intentInfo.deposit ?? DEFAULT_DEPOSIT).toString(),
+          },
         ]);
         txBuilder.txOut(intentInfo.accountAddress, outputValue.toAssets());
       }

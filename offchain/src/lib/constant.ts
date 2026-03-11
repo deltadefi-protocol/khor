@@ -46,7 +46,3 @@ export class KhorConstants {
     };
   }
 }
-
-export const minUtxos = {
-  swapIntent: "2000000",
-};
