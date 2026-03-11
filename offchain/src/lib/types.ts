@@ -32,12 +32,20 @@ export interface OracleInfo {
   ddKey: string;
 }
 
+/** Default deposit amount in lovelace (2 ADA) */
+export const DEFAULT_DEPOSIT = 2_000_000;
+
 export interface SwapIntentInfo {
+  /** Bech32 address where output will be sent after swap */
   accountAddress: string;
+  /** Assets the user is swapping from */
   fromAmount: Asset[];
+  /** Assets the user expects to receive */
   toAmount: Asset[];
+  /** Slot number used for expiry calculation. Intent is cancellable at createdAt + 600 slots */
   createdAt: number;
-  deposit: number;
+  /** Deposit in lovelace returned to user after swap/cancel (default: 2 ADA) */
+  deposit?: number;
 }
 
 export const oracleDatum = (info: OracleInfo): OracleDatum =>
@@ -48,13 +56,24 @@ export const oracleDatum = (info: OracleInfo): OracleDatum =>
     byteString(info.ddKey),
   ]) as OracleDatum;
 
+/**
+ * Constructs a SwapIntentDatum for on-chain storage.
+ *
+ * @param info - Swap intent information
+ * @returns Plutus datum with structure:
+ *   - [0] accountAddress: Address receiving output tokens
+ *   - [1] fromAmount: Value being swapped
+ *   - [2] toAmount: Expected value to receive
+ *   - [3] createdAt: Slot number for expiry (cancellable at createdAt + 600)
+ *   - [4] deposit: Lovelace deposit returned after swap/cancel
+ */
 export const swapIntentDatum = (info: SwapIntentInfo): SwapIntentDatum => {
   return conStr0([
-    addrBech32ToPlutusDataObj(info.accountAddress),
-    MeshValue.fromAssets(info.fromAmount).toJSON(),
-    MeshValue.fromAssets(info.toAmount).toJSON(),
-    integer(info.createdAt),
-    integer(info.deposit),
+    addrBech32ToPlutusDataObj(info.accountAddress), // [0] accountAddress
+    MeshValue.fromAssets(info.fromAmount).toJSON(), // [1] fromAmount
+    MeshValue.fromAssets(info.toAmount).toJSON(), // [2] toAmount
+    integer(info.createdAt), // [3] createdAt (slot)
+    integer(info.deposit ?? DEFAULT_DEPOSIT), // [4] deposit (lovelace)
   ]) as SwapIntentDatum;
 };
 
