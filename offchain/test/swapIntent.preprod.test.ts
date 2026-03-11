@@ -8,10 +8,7 @@ import {
   UTxO,
 } from "@meshsdk/core";
 import { SwapIntentTx } from "../src/transactions/swapIntent";
-import {
-  KhorConstants,
-  preprodOracleNftPolicyId,
-} from "../src/lib/constant";
+import { KhorConstants, preprodOracleNftPolicyId } from "../src/lib/constant";
 import { SwapOracleSpendBlueprint } from "../src/lib/bar";
 import { OfflineEvaluator } from "@meshsdk/core-csl";
 import { parseSwapIntentDatum } from "../src/lib/types";
@@ -29,8 +26,9 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
   let ddAddress: string;
   let operatorAddress: string;
   let userAddress: string;
+  let khorConstants: KhorConstants;
   let swapIntentTx: SwapIntentTx;
-  let oracleUtxo: UTxO;
+  let oracleUtxo: UTxO; // Full UTxO needed for processSwapIntents
 
   beforeAll(async () => {
     blockfrost = new BlockfrostProvider(BLOCKFROST_API_KEY!);
@@ -86,10 +84,10 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
     console.log("Operator wallet address:", operatorAddress);
     console.log("User wallet address:", userAddress);
 
-    const khorConstants = new KhorConstants("preprod");
+    khorConstants = new KhorConstants("preprod");
     swapIntentTx = new SwapIntentTx(khorConstants);
 
-    // Find oracle UTxO by NFT
+    // Fetch full oracle UTxO (needed for processSwapIntents which parses datum)
     const oracleSpend = new SwapOracleSpendBlueprint(0, [
       byteString(preprodOracleNftPolicyId),
     ]);
@@ -125,7 +123,7 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
         utxos,
         collateral: collateralUtxo,
         changeAddress: userAddress,
-        oracleUtxo,
+        oracleUtxo: khorConstants.oracleUtxo, // TxInput from config
         accountAddress: userAddress,
         fromAmount: [
           {
@@ -139,7 +137,7 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
             quantity: "5000000", // 5 USDM (100 × 0.05, decimals=6)
           },
         ],
-        // expiry defaults to now + 10 mins, deposit defaults to 2 ADA
+        // expiry defaults to 10 mins, deposit defaults to 2 ADA
       };
 
       console.log("Building createSwapIntent transaction...");
@@ -153,12 +151,12 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
       console.log("Transaction new UTxOs:", JSON.stringify(result.newUtxos));
 
       // Sign with User wallet
-      // const signedTx = await userWallet.signTx(result.txHex);
-      // console.log("Transaction signed successfully");
+      const signedTx = await userWallet.signTx(result.txHex);
+      console.log("Transaction signed successfully");
 
-      // // Uncomment to submit:
-      // const txHash = await userWallet.submitTx(signedTx);
-      // console.log("Submitted tx:", txHash);
+      // Uncomment to submit:
+      const txHash = await userWallet.submitTx(signedTx);
+      console.log("Submitted tx:", txHash);
     }, 120000);
   });
 
@@ -185,7 +183,7 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
         utxos,
         collateral: collateralUtxo,
         changeAddress: ddAddress,
-        oracleUtxo,
+        oracleUtxo: khorConstants.oracleUtxo, // TxInput from config
         swapIntentUtxo,
       };
 

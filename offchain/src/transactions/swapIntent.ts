@@ -5,6 +5,7 @@ import {
   resolveSlotNo,
   IFetcher,
   UTxO,
+  TxInput,
   SLOT_CONFIG_NETWORK,
 } from "@meshsdk/core";
 import {
@@ -85,7 +86,7 @@ const selectUtxosForWithdrawal = (
 export const DEFAULT_EXPIRY_MS = 10 * 60 * 1000;
 
 export interface CreateSwapIntentParams extends TxParams {
-  oracleUtxo: UTxO;
+  oracleUtxo: TxInput;
   accountAddress: string;
   fromAmount: Asset[];
   toAmount: Asset[];
@@ -94,7 +95,7 @@ export interface CreateSwapIntentParams extends TxParams {
 }
 
 export interface CancelSwapIntentParams extends TxParams {
-  oracleUtxo: UTxO;
+  oracleUtxo: TxInput;
   swapIntentUtxo: UTxO;
 }
 
@@ -226,8 +227,8 @@ export class SwapIntentTx extends KhorTxBuilder {
 
     txBuilder
       .readOnlyTxInReference(
-        params.oracleUtxo.input.txHash,
-        params.oracleUtxo.input.outputIndex,
+        params.oracleUtxo.txHash,
+        params.oracleUtxo.outputIndex,
         0,
       )
       .txOut(this.swapIntentAddress, outputValue.toAssets())
@@ -260,8 +261,8 @@ export class SwapIntentTx extends KhorTxBuilder {
 
     txBuilder
       .readOnlyTxInReference(
-        params.oracleUtxo.input.txHash,
-        params.oracleUtxo.input.outputIndex,
+        params.oracleUtxo.txHash,
+        params.oracleUtxo.outputIndex,
         0,
       )
       // Spend the swap intent UTxO
