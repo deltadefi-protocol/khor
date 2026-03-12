@@ -86,7 +86,6 @@ const selectUtxosForWithdrawal = (
 export const DEFAULT_EXPIRY_MS = 10 * 60 * 1000;
 
 export interface CreateSwapIntentParams extends TxParams {
-  oracleUtxo: TxInput;
   accountAddress: string;
   fromAmount: Asset[];
   toAmount: Asset[];
@@ -226,11 +225,6 @@ export class SwapIntentTx extends KhorTxBuilder {
     outputValue.addAssets([{ unit: "lovelace", quantity: deposit.toString() }]); // Add deposit to output value
 
     txBuilder
-      .readOnlyTxInReference(
-        params.oracleUtxo.txHash,
-        params.oracleUtxo.outputIndex,
-        0,
-      )
       .txOut(this.swapIntentAddress, outputValue.toAssets())
       .txOutInlineDatumValue(datum, "JSON");
 

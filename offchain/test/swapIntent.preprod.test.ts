@@ -123,18 +123,17 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
         utxos,
         collateral: collateralUtxo,
         changeAddress: userAddress,
-        oracleUtxo: khorConstants.oracleUtxo, // TxInput from config
         accountAddress: userAddress,
         fromAmount: [
           {
-            unit: "3363b99384d6ee4c4b009068af396c8fdf92dafd111e58a857af04294e49474854", // NIGHT
-            quantity: "100000000", // 100 NIGHT (decimals=6)
+            unit: "3363b99384d6ee4c4b009068af396c8fdf92dafd111e58a857af04294e49474854",
+            quantity: "500000000",
           },
         ],
         toAmount: [
           {
-            unit: "c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d", // USDM
-            quantity: "5000000", // 5 USDM (100 × 0.05, decimals=6)
+            unit: "lovelace",
+            quantity: "85000000",
           },
         ],
         // expiry defaults to 10 mins, deposit defaults to 2 ADA
