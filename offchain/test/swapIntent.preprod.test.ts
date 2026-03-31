@@ -197,9 +197,9 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
 
       // Sign with ddWallet wallet
       const signedTx = await ddWallet.signTx(result.txHex);
-
+      const fullySignedTx = await operatorWallet.signTx(signedTx, true); // Sign again to add operatorKeyHash as required signer
       // Uncomment to submit:
-      const txHash = await ddWallet.submitTx(signedTx);
+      const txHash = await ddWallet.submitTx(fullySignedTx);
       console.log("Submitted tx:", txHash);
     }, 120000);
   });
