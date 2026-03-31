@@ -46,8 +46,20 @@ validator swap_intent(oracle_nft: PolicyId) {
           [only_input] -> {
             expect SwapIntentDatum { account_address, created_at, .. }: SwapIntentDatum =
               input_inline_datum(only_input)
-            let is_cancel_time_valid =
-              is_entirely_after(validity_range, created_at + 600)
+
+            // Get oracle datum for operator_key
+            let oracle_input_datum: OracleDatum =
+              reference_inputs |> get_oracle_datum(oracle_nft)
+            let OracleDatum { operator_key, .. } = oracle_input_datum
+
+            // Time check OR operator signature
+            let time_or_operator_check =
+              when key_signed(extra_signatories, operator_key) is {
+                True -> True
+                False -> is_entirely_after(validity_range, created_at + 600)
+              }
+
+            // Account signature OR value returned to account
             let account_check =
               when
                 key_signed(
@@ -64,7 +76,7 @@ validator swap_intent(oracle_nft: PolicyId) {
                   is_value_unlocked?
                 }
               }
-            is_cancel_time_valid? && account_check?
+            time_or_operator_check? && account_check?
           }
           _ -> False
         }

@@ -184,6 +184,8 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
         changeAddress: ddAddress,
         oracleUtxo: khorConstants.oracleUtxo, // TxInput from config
         swapIntentUtxo,
+        operatorKeyHash:
+          "7fbf89e18a0bbb1cf0f4d91cb70d4f99460c4375881c0a9ecb52a1c0",
       };
 
       console.log("Building cancelSwapIntent transaction...");

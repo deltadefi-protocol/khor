@@ -96,6 +96,7 @@ export interface CreateSwapIntentParams extends TxParams {
 export interface CancelSwapIntentParams extends TxParams {
   oracleUtxo: TxInput;
   swapIntentUtxo: UTxO;
+  operatorKeyHash?: string; // If provided, enables immediate cancel (bypasses 10-min time lock)
 }
 
 export interface SwapIntentFill {
@@ -239,7 +240,9 @@ export class SwapIntentTx extends KhorTxBuilder {
 
   /**
    * Cancel a swap intent - burns intent token and reclaims assets
-   * Can only be done 10+ minutes after creation
+   * Can be done:
+   * - After 10+ minutes from creation (user self-cancel)
+   * - Immediately if operator signs (pass operator key hash in requiredSigners)
    */
   cancelSwapIntent = async (
     params: CancelSwapIntentParams,
@@ -277,8 +280,15 @@ export class SwapIntentTx extends KhorTxBuilder {
         this.swapIntentSpend.hash,
       )
       // Send locked funds back to user's account address
-      .txOut(intentInfo.accountAddress, intentUtxo.output.amount)
-      .invalidBefore(intentInfo.createdAt + 600); // 10 minutes after creation
+      .txOut(intentInfo.accountAddress, intentUtxo.output.amount);
+
+    // If operator key hash provided, add as required signer for immediate cancel
+    // Otherwise, require time lock (10 minutes after creation)
+    if (params.operatorKeyHash) {
+      txBuilder.requiredSignerHash(params.operatorKeyHash);
+    } else {
+      txBuilder.invalidBefore(intentInfo.createdAt + 600);
+    }
 
     const txHex = await txBuilder.complete();
 

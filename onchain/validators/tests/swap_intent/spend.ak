@@ -9,9 +9,9 @@ use mocktail.{
 }
 use swap_intent/spend_withdraw_publish as swap_intent_spend_withdraw_publish
 use tests/utils.{
-  mock_account_address, mock_created_at, mock_dd_key, mock_swap_from_m_value,
-  mock_swap_intent_datum, mock_swap_script_hash, mock_vault_oracle,
-  mock_vault_oracle_address, mock_vault_oracle_datum,
+  mock_account_address, mock_created_at, mock_dd_key, mock_operator_key,
+  mock_swap_from_m_value, mock_swap_intent_datum, mock_swap_script_hash,
+  mock_vault_oracle, mock_vault_oracle_address, mock_vault_oracle_datum,
 }
 use types.{CancelIntent, ProcessSwap, SpamPrevention, SwapIntentDatum}
 
@@ -83,6 +83,7 @@ test s1_spend_fail_process_swap_with_no_withdrawal_script_executed() {
 
 type CancelSwapIntentTestCase {
   is_cancel_time_valid: Bool,
+  is_operator_signed: Bool,
   is_value_unlocked_correctly: Bool,
   is_account_signed: Bool,
 }
@@ -92,6 +93,7 @@ fn mock_cancel_swap_intent_tx(
 ) -> Transaction {
   let CancelSwapIntentTestCase {
     is_cancel_time_valid,
+    is_operator_signed,
     is_value_unlocked_correctly,
     is_account_signed,
   } = test_case
@@ -119,6 +121,7 @@ fn mock_cancel_swap_intent_tx(
         is_account_signed,
         address_payment_key(mock_account_address),
       )
+    |> add_extra_signatory(is_operator_signed, mock_operator_key)
     |> add_input(
         True,
         Input {
@@ -139,6 +142,7 @@ test s1_mint_success_cancel_swap_intent() {
     mock_cancel_swap_intent_tx(
       CancelSwapIntentTestCase {
         is_cancel_time_valid: True,
+        is_operator_signed: False,
         is_value_unlocked_correctly: True,
         is_account_signed: True,
       },
@@ -153,14 +157,78 @@ test s1_mint_success_cancel_swap_intent() {
   )
 }
 
-test s1_mint_fail_cancel_swap_intent_with_invalid_cancel_time() {
+test s1_mint_fail_cancel_swap_intent_with_invalid_cancel_time_and_no_operator_sign() {
   let redeemer = CancelIntent
   let tx =
     mock_cancel_swap_intent_tx(
       CancelSwapIntentTestCase {
         is_cancel_time_valid: False,
+        is_operator_signed: False,
         is_value_unlocked_correctly: True,
         is_account_signed: True,
+      },
+    )
+
+  !swap_intent_spend_withdraw_publish.swap_intent.spend(
+    mock_vault_oracle,
+    None,
+    redeemer,
+    mock_utxo_ref(0, 0),
+    tx,
+  )
+}
+
+test s1_mint_success_cancel_swap_intent_with_invalid_cancel_time_but_operator_signed() {
+  let redeemer = CancelIntent
+  let tx =
+    mock_cancel_swap_intent_tx(
+      CancelSwapIntentTestCase {
+        is_cancel_time_valid: False,
+        is_operator_signed: True,
+        is_value_unlocked_correctly: True,
+        is_account_signed: True,
+      },
+    )
+
+  swap_intent_spend_withdraw_publish.swap_intent.spend(
+    mock_vault_oracle,
+    None,
+    redeemer,
+    mock_utxo_ref(0, 0),
+    tx,
+  )
+}
+
+test s1_mint_success_cancel_swap_intent_operator_signed_value_returned() {
+  let redeemer = CancelIntent
+  let tx =
+    mock_cancel_swap_intent_tx(
+      CancelSwapIntentTestCase {
+        is_cancel_time_valid: False,
+        is_operator_signed: True,
+        is_value_unlocked_correctly: True,
+        is_account_signed: False,
+      },
+    )
+
+  swap_intent_spend_withdraw_publish.swap_intent.spend(
+    mock_vault_oracle,
+    None,
+    redeemer,
+    mock_utxo_ref(0, 0),
+    tx,
+  )
+}
+
+test s1_mint_fail_cancel_swap_intent_operator_signed_but_no_account_check() {
+  let redeemer = CancelIntent
+  let tx =
+    mock_cancel_swap_intent_tx(
+      CancelSwapIntentTestCase {
+        is_cancel_time_valid: False,
+        is_operator_signed: True,
+        is_value_unlocked_correctly: False,
+        is_account_signed: False,
       },
     )
 
@@ -179,6 +247,7 @@ test s1_mint_fail_cancel_swap_intent_with_value_unlocked_incorrect_and_no_sign()
     mock_cancel_swap_intent_tx(
       CancelSwapIntentTestCase {
         is_cancel_time_valid: True,
+        is_operator_signed: False,
         is_value_unlocked_correctly: False,
         is_account_signed: False,
       },
@@ -199,6 +268,7 @@ test s1_mint_success_cancel_swap_intent_with_no_account_signature_but_with_value
     mock_cancel_swap_intent_tx(
       CancelSwapIntentTestCase {
         is_cancel_time_valid: True,
+        is_operator_signed: False,
         is_value_unlocked_correctly: True,
         is_account_signed: False,
       },
@@ -219,6 +289,7 @@ test s1_mint_success_cancel_swap_intent_with_value_unlocked_incorrect_but_has_si
     mock_cancel_swap_intent_tx(
       CancelSwapIntentTestCase {
         is_cancel_time_valid: True,
+        is_operator_signed: False,
         is_value_unlocked_correctly: False,
         is_account_signed: True,
       },

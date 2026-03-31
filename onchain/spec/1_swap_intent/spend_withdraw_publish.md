@@ -18,7 +18,9 @@
    - Withdrawal script with own `script_hash` is validated in `withdrawals`
 
 2. `CancelIntent`
-   - time >= created_at + 10mins (600)
+   - either:
+     - time >= created_at + 10mins (600)
+     - signed by `operator_key` from `VaultOracleDatum`
    - either:
      - signed by account_address
      - input value send back to account_address
