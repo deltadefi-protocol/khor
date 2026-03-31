@@ -116,14 +116,6 @@ export class KhorTxBuilder {
     return txBuilder;
   };
 
-  newTx = (params: TxParams): MeshTxBuilder => {
-    const txBuilder = this.newTxBuilder(false);
-
-    txBuilder.changeAddress(params.changeAddress).selectUtxosFrom(params.utxos);
-
-    return txBuilder;
-  };
-
   newValidationTx = (
     params: TxParams,
     fetcher?: any,

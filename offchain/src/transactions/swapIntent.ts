@@ -248,49 +248,81 @@ export class SwapIntentTx extends KhorTxBuilder {
     params: CancelSwapIntentParams,
     fetcher?: any,
   ): Promise<TxComplete> => {
-    const txBuilder = this.newValidationTx(params, fetcher);
-
     const intentUtxo = params.swapIntentUtxo;
     const intentInfo = parseSwapIntentDatum(intentUtxo);
     if (!intentInfo) {
       throw new Error("Invalid swap intent UTxO");
     }
 
-    txBuilder
-      .readOnlyTxInReference(
-        params.oracleUtxo.txHash,
-        params.oracleUtxo.outputIndex,
-        0,
-      )
-      // Spend the swap intent UTxO
-      .spendingPlutusScriptV3()
-      .txIn(
-        intentUtxo.input.txHash,
-        intentUtxo.input.outputIndex,
-        intentUtxo.output.amount,
-        intentUtxo.output.address,
-        0,
-      )
-      .txInInlineDatumPresent()
-      .txInRedeemerValue(cancelIntent(), "JSON")
-      .spendingTxInReference(
-        this.config.refScripts.swapIntent.txHash,
-        this.config.refScripts.swapIntent.outputIndex,
-        (this.swapIntentSpend.cbor.length / 2).toString(),
-        this.swapIntentSpend.hash,
-      )
-      // Send locked funds back to user's account address
-      .txOut(intentInfo.accountAddress, intentUtxo.output.amount);
+    // Helper to build tx with given exUnits
+    const buildTx = async (exUnits?: { mem: number; steps: number }) => {
+      const txBuilder = this.newValidationTx(params, fetcher, false);
 
-    // If operator key hash provided, add as required signer for immediate cancel
-    // Otherwise, require time lock (10 minutes after creation)
-    if (params.operatorKeyHash) {
-      txBuilder.requiredSignerHash(params.operatorKeyHash);
-    } else {
-      txBuilder.invalidBefore(intentInfo.createdAt + 600);
+      txBuilder
+        .readOnlyTxInReference(
+          params.oracleUtxo.txHash,
+          params.oracleUtxo.outputIndex,
+          0,
+        )
+        // Spend the swap intent UTxO
+        .spendingPlutusScriptV3()
+        .txIn(
+          intentUtxo.input.txHash,
+          intentUtxo.input.outputIndex,
+          intentUtxo.output.amount,
+          intentUtxo.output.address,
+          0,
+        )
+        .txInInlineDatumPresent()
+        .txInRedeemerValue(cancelIntent(), "JSON", exUnits)
+        .spendingTxInReference(
+          this.config.refScripts.swapIntent.txHash,
+          this.config.refScripts.swapIntent.outputIndex,
+          (this.swapIntentSpend.cbor.length / 2).toString(),
+          this.swapIntentSpend.hash,
+        )
+        .inputForEvaluation(intentUtxo)
+        // Send locked funds back to user's account address
+        .txOut(intentInfo.accountAddress, intentUtxo.output.amount);
+
+      // If operator key hash provided, add as required signer for immediate cancel
+      // Otherwise, require time lock (10 minutes after creation)
+      if (params.operatorKeyHash) {
+        txBuilder.requiredSignerHash(params.operatorKeyHash);
+      } else {
+        txBuilder.invalidBefore(intentInfo.createdAt + 600);
+      }
+
+      return txBuilder.complete();
+    };
+
+    // First pass: build tx with placeholder exUnits to evaluate
+    const initialTxHex = await buildTx();
+
+    const evaluator = new OfflineEvaluator(
+      fetcher,
+      this.config.networkId === 0 ? "preprod" : "mainnet",
+    );
+
+    // Collect all UTxOs needed for evaluation
+    const additionalUtxos: UTxO[] = [...params.utxos, intentUtxo];
+
+    const evalResult = await evaluator.evaluateTx(
+      initialTxHex,
+      additionalUtxos,
+      [],
+    );
+
+    // Parse evaluation result into exUnits
+    let exUnits = { mem: 0, steps: 0 };
+    for (const result of evalResult) {
+      if (result.tag === "SPEND") {
+        exUnits = { mem: result.budget.mem, steps: result.budget.steps };
+      }
     }
 
-    const txHex = await txBuilder.complete();
+    // Second pass: build tx with actual exUnits
+    const txHex = await buildTx(exUnits);
 
     return {
       txHex,

@@ -161,8 +161,8 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
 
   describe("cancelSwapIntent", () => {
     it("should build cancel swap intent transaction", async () => {
-      const utxos = await ddWallet.getUtxos();
-      const collateral = await ddWallet.getCollateral();
+      const userUtxos = await blockfrost.fetchAddressUTxOs(userAddress);
+      const collateral = await ddWallet.getCollateral("enterprise");
 
       // Find an existing swap intent UTxO
       const swapIntentAddress = swapIntentTx.getSwapIntentAddress();
@@ -179,9 +179,9 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
       console.log("Found swap intent UTxO:", swapIntentUtxo.input);
 
       const params = {
-        utxos,
+        utxos: userUtxos,
         collateral: collateralUtxo,
-        changeAddress: ddAddress,
+        changeAddress: userAddress,
         oracleUtxo: khorConstants.oracleUtxo, // TxInput from config
         swapIntentUtxo,
         operatorKeyHash:
@@ -196,9 +196,13 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
       expect(result.txHex.length).toBeGreaterThan(0);
 
       // Sign with ddWallet wallet
-      const signedTx = await ddWallet.signTx(result.txHex);
+      const tx = await userWallet.signTx(result.txHex, true);
+
+      const signedTx = await ddWallet.signTx(tx, true);
       const fullySignedTx = await operatorWallet.signTx(signedTx, true); // Sign again to add operatorKeyHash as required signer
       // Uncomment to submit:
+      console.log("fullySignedTx:", fullySignedTx);
+
       const txHash = await ddWallet.submitTx(fullySignedTx);
       console.log("Submitted tx:", txHash);
     }, 120000);

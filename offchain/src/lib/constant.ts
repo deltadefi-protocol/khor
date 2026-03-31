@@ -4,12 +4,12 @@ export type Network = "preprod" | "mainnet";
 
 // Preprod constants
 export const preprodOracleNftPolicyId =
-  "53470fd23b305c4bda20e94194eec890d35570b3c8ab140e91b0a95d";
+  "51fa0f0b0800b3a81d0277440f81c8caf1b08b732980d36c4c9973b9";
 export const preprodRefScriptTxHash =
-  "7e6e27e0e847871cea708d5eaf00dd1d5263eb0c01d79473dc08a8b66583e7e5";
+  "b1a6cb2e00686251210abde819c3c5cdaf8e4801aef6dc8bf94b06a08e3f9752";
 export const preprodRefScriptOutputIndex = 0;
 export const preprodOracleUtxoTxHash =
-  "d03a1a76789af931d4af4deb3babada849d0a79a21d2a14e4f1c4066382cec6d";
+  "693a0388bdf86c90051e2dbcca324cc71108e26d48c0d244dc3d5c6e640b137f";
 export const preprodOracleUtxoOutputIndex = 0;
 
 // Mainnet constants

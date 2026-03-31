@@ -4,8 +4,7 @@ use cardano/assets.{PolicyId, add, merge}
 use cardano/transaction.{OutputReference, Transaction, find_input}
 use cocktail.{
   address_payment_key, all_key_signed, get_all_value_from_cred,
-  get_all_value_to_cred, input_inline_datum, inputs_at, key_signed, outputs_at,
-  value_geq,
+  get_all_value_to_cred, input_inline_datum, inputs_at, key_signed, value_geq,
 }
 use swap_utils.{process_batched_swap_intent_validation}
 use types.{
@@ -28,6 +27,7 @@ validator swap_intent(oracle_nft: PolicyId) {
       validity_range,
       extra_signatories,
       outputs,
+      fee,
       ..
     } = self
 
@@ -69,10 +69,26 @@ validator swap_intent(oracle_nft: PolicyId) {
               is {
                 True -> True
                 False -> {
-                  expect [account_output] = outputs_at(outputs, account_address)
+                  let value_from_account =
+                    get_all_value_from_cred(
+                      inputs,
+                      account_address.payment_credential,
+                    )
+
+                  let value_to_account =
+                    get_all_value_to_cred(
+                      outputs,
+                      account_address.payment_credential,
+                    )
+
                   let is_value_unlocked =
-                    account_output.value
-                      |> value_geq(only_input.output.value)
+                    value_to_account
+                      |> add("", "", fee)
+                      |> value_geq(
+                          only_input.output.value
+                            |> merge(value_from_account),
+                        )
+
                   is_value_unlocked?
                 }
               }
