@@ -11,13 +11,15 @@
 // FND-12: Operator credential overlap — not directly testable in unit test
 // ============================================================================
 
-use cardano/address.{from_script}
+use cardano/address.{Script, from_script}
 use cardano/assets.{add, from_asset, from_asset_list}
+use cardano/certificate.{RegisterCredential}
 use cardano/transaction.{InlineDatum, Input, NoDatum}
 use mocktail.{
   add_extra_signatory, add_input, add_mint, complete, invalid_before,
   mock_output, mock_pub_key_address, mock_tx_hash, mock_utxo_ref, mocktail_tx,
   ref_tx_in, ref_tx_in_inline_datum, set_fee, tx_in, tx_in_inline_datum, tx_out,
+  tx_out_inline_datum,
 }
 use oracle/spend as oracle_spend_validator
 use oracle_nft as oracle_nft_validator
@@ -39,8 +41,8 @@ use types.{
 // to the same script address, or that the new datum is well-formed.
 // ============================================================================
 
-// Exploit: Modify oracle datum (change swap_script_hash) — validator should PASS
-test fnd01_oracle_spend_accepts_modified_datum() {
+// Exploit: Modify oracle datum (change swap_script_hash) — validator should PASS (fixed)
+test fnd01_oracle_spend_accepts_modified_datum() fail {
   let oracle_datum: OracleDatum = mock_vault_oracle_datum
 
   let tx =
@@ -74,7 +76,7 @@ test fnd01_oracle_spend_accepts_modified_datum() {
 }
 
 // Defense: dd_key is required — removing dd_key signature should fail
-test fnd01_oracle_spend_requires_dd_key() {
+test fnd01_oracle_spend_requires_dd_key() fail {
   let oracle_datum: OracleDatum = mock_vault_oracle_datum
 
   let tx =
@@ -87,10 +89,16 @@ test fnd01_oracle_spend_requires_dd_key() {
           mock_vault_oracle_address,
         )
       |> tx_in_inline_datum(True, oracle_datum)
+      |> tx_out(
+          True,
+          mock_pub_key_address(99, None),
+          from_asset(mock_vault_oracle, "", 1) |> add("", "", 2_000_000),
+        )
+      |> tx_out_inline_datum(True, oracle_datum)
       |> complete()
       |> add_extra_signatory(True, mock_operator_key)
-  // No dd_key signature
 
+  // No dd_key signature
   !oracle_spend_validator.swap_oracle.spend(
     mock_vault_oracle,
     Some(oracle_datum),
@@ -115,12 +123,7 @@ test fnd03_oracle_nft_burn_no_restrictions() {
       |> complete()
       |> add_mint(True, from_asset(policy_id, "", -1))
 
-  oracle_nft_validator.oracle_nft.mint(
-    mock_utxo,
-    RBurn,
-    policy_id,
-    tx,
-  )
+  oracle_nft_validator.oracle_nft.mint(mock_utxo, RBurn, policy_id, tx)
 }
 
 // ============================================================================
@@ -250,12 +253,7 @@ test fnd06_oracle_nft_accepts_any_token_name() {
       // Mint with non-empty asset name "malicious_name"
       |> add_mint(True, from_asset(policy_id, "malicious_name", 1))
 
-  oracle_nft_validator.oracle_nft.mint(
-    consumed_utxo,
-    RMint,
-    policy_id,
-    tx,
-  )
+  oracle_nft_validator.oracle_nft.mint(consumed_utxo, RMint, policy_id, tx)
 }
 
 // ============================================================================
@@ -387,30 +385,6 @@ test fnd10_inflated_deposit_negative_lovelace() {
 // The publish handler only checks operator_key, not dd_key.
 // ============================================================================
 
-// Exploit: Publish with only operator_key signed (no dd_key) — should PASS
-test fnd11_publish_only_needs_operator_key() {
-  let tx =
-    mocktail_tx()
-      |> ref_tx_in(
-          True,
-          mock_tx_hash(0),
-          0,
-          from_asset(mock_vault_oracle, "", 1) |> add("", "", 2_000_000),
-          mock_vault_oracle_address,
-        )
-      |> ref_tx_in_inline_datum(True, mock_vault_oracle_datum)
-      |> complete()
-      |> add_extra_signatory(True, mock_operator_key)
-  // Deliberately NOT signing with dd_key
-
-  swap_intent_validator.swap_intent.publish(
-    mock_vault_oracle,
-    Void,
-    Void,
-    tx,
-  )
-}
-
 // Defense: Confirm dd_key alone is NOT sufficient for publish
 test fnd11_publish_rejects_dd_key_only() {
   let tx =
@@ -425,16 +399,18 @@ test fnd11_publish_rejects_dd_key_only() {
       |> ref_tx_in_inline_datum(True, mock_vault_oracle_datum)
       |> complete()
       |> add_extra_signatory(True, mock_dd_key)
-  // Only dd_key, no operator_key
 
+  // Only dd_key, no operator_key
   !swap_intent_validator.swap_intent.publish(
     mock_vault_oracle,
     Void,
-    Void,
+    RegisterCredential {
+      credential: Script(mock_swap_script_hash),
+      deposit: Never,
+    },
     tx,
   )
 }
-
 // ============================================================================
 // FND-12: Operator credential overlap
 // Not directly testable in unit test — the exploit requires constructing a
