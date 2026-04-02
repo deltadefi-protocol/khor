@@ -8,10 +8,117 @@ import {
   UTxO,
 } from "@meshsdk/core";
 import { SwapIntentTx } from "../src/transactions/swapIntent";
-import { KhorConstants, preprodOracleNftPolicyId } from "../src/lib/constant";
+import {
+  KhorConstants,
+  preprodOracleNftPolicyId,
+  preprodUsdcxUnit,
+  preprodUsdmUnit,
+  preprodNightUnit,
+} from "../src/lib/constant";
 import { SwapOracleSpendBlueprint } from "../src/lib/bar";
 import { OfflineEvaluator } from "@meshsdk/core-csl";
 import { parseSwapIntentDatum } from "../src/lib/types";
+
+// ============ Depth Fetching Helpers ============
+const OPERATOR_BASE_URL = process.env.OPERATOR_URL || "http://localhost:3000";
+
+interface DepthLevel {
+  price: string;
+  quantity: string;
+}
+
+interface DepthResponse {
+  timestamp: number;
+  bids: DepthLevel[];
+  asks: DepthLevel[];
+}
+
+interface SwapIntentTestParams {
+  fromUnit: string;
+  fromQuantity: string;
+  toUnit: string;
+  toQuantity: string;
+  description: string;
+}
+
+/**
+ * Fetch depth from operator API
+ */
+async function fetchDepth(symbol: string): Promise<DepthResponse> {
+  const response = await fetch(`${OPERATOR_BASE_URL}/swapIntent/depth/${symbol}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch depth for ${symbol}: ${response.statusText}`);
+  }
+  return response.json() as Promise<DepthResponse>;
+}
+
+/**
+ * Calculate swap intent params from depth
+ * @param symbol - Trading symbol (e.g., ADAUSDC, ADAUSDM)
+ * @param side - 'buy' (buy base with quote) or 'sell' (sell base for quote)
+ * @param baseAmount - Amount of base token (e.g., 100 ADA)
+ * @param slippagePct - Slippage tolerance (e.g., 0.01 = 1%)
+ */
+async function calculateSwapParams(
+  symbol: string,
+  side: "buy" | "sell",
+  baseAmount: number,
+  slippagePct: number = 0.01,
+): Promise<SwapIntentTestParams> {
+  const depth = await fetchDepth(symbol);
+
+  // Token mapping based on symbol
+  const symbolConfig: Record<string, { baseUnit: string; quoteUnit: string; baseDecimals: number; quoteDecimals: number }> = {
+    ADAUSDC: { baseUnit: "lovelace", quoteUnit: preprodUsdcxUnit, baseDecimals: 6, quoteDecimals: 6 },
+    ADAUSDM: { baseUnit: "lovelace", quoteUnit: preprodUsdmUnit, baseDecimals: 6, quoteDecimals: 6 },
+    NIGHTUSDM: { baseUnit: preprodNightUnit, quoteUnit: preprodUsdmUnit, baseDecimals: 6, quoteDecimals: 6 },
+  };
+
+  const config = symbolConfig[symbol];
+  if (!config) {
+    throw new Error(`Unknown symbol: ${symbol}`);
+  }
+
+  const { baseUnit, quoteUnit, baseDecimals, quoteDecimals } = config;
+
+  if (side === "buy") {
+    // Buy base with quote - use asks (selling price)
+    if (depth.asks.length === 0) {
+      throw new Error(`No asks available for ${symbol}`);
+    }
+    // Sort asks by price ascending to get best price
+    const sortedAsks = [...depth.asks].sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+    const bestAsk = sortedAsks[0]!;
+    const price = parseFloat(bestAsk.price);
+    const quoteAmount = baseAmount * price * (1 + slippagePct); // Add slippage
+
+    return {
+      fromUnit: quoteUnit,
+      fromQuantity: Math.floor(quoteAmount * Math.pow(10, quoteDecimals)).toString(),
+      toUnit: baseUnit,
+      toQuantity: Math.floor(baseAmount * Math.pow(10, baseDecimals)).toString(),
+      description: `Buy ${baseAmount} ${symbol.replace(/USD.*/, "")} @ ${price} (ask) with ${slippagePct * 100}% slippage`,
+    };
+  } else {
+    // Sell base for quote - use bids (buying price)
+    if (depth.bids.length === 0) {
+      throw new Error(`No bids available for ${symbol}`);
+    }
+    // Sort bids by price descending to get best price
+    const sortedBids = [...depth.bids].sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+    const bestBid = sortedBids[0]!;
+    const price = parseFloat(bestBid.price);
+    const quoteAmount = baseAmount * price * (1 - slippagePct); // Subtract slippage
+
+    return {
+      fromUnit: baseUnit,
+      fromQuantity: Math.floor(baseAmount * Math.pow(10, baseDecimals)).toString(),
+      toUnit: quoteUnit,
+      toQuantity: Math.floor(quoteAmount * Math.pow(10, quoteDecimals)).toString(),
+      description: `Sell ${baseAmount} ${symbol.replace(/USD.*/, "")} @ ${price} (bid) with ${slippagePct * 100}% slippage`,
+    };
+  }
+}
 
 // Skip tests if env vars not set
 const BLOCKFROST_API_KEY = process.env.BLOCKFROST_API_KEY;
@@ -156,6 +263,145 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
       // Uncomment to submit:
       const txHash = await userWallet.submitTx(signedTx);
       console.log("Submitted tx:", txHash);
+    }, 120000);
+  });
+
+  // ============ Depth-Based Swap Intent Tests ============
+  describe("createSwapIntent (depth-based)", () => {
+    it("should create ADAUSDC buy intent (buy ADA with USDC)", async () => {
+      const utxos = await userWallet.getUtxos();
+      const collateral = await userWallet.getCollateral();
+
+      if (utxos.length === 0 || !collateral || collateral.length === 0) {
+        console.log("No UTxOs or collateral - skipping");
+        return;
+      }
+
+      // Fetch depth and calculate params
+      const swapParams = await calculateSwapParams("ADAUSDC", "buy", 50, 0.01);
+      console.log("Swap params:", swapParams);
+
+      const params = {
+        utxos,
+        collateral: collateral[0]!,
+        changeAddress: userAddress,
+        accountAddress: userAddress,
+        fromAmount: [{ unit: swapParams.fromUnit, quantity: swapParams.fromQuantity }],
+        toAmount: [{ unit: swapParams.toUnit, quantity: swapParams.toQuantity }],
+      };
+
+      console.log(`Building: ${swapParams.description}`);
+      const result = await swapIntentTx.createSwapIntent(params, blockfrost);
+
+      expect(result.txHex).toBeDefined();
+      console.log("txHex length:", result.txHex.length);
+      console.log("New UTxOs:", JSON.stringify(result.newUtxos, null, 2));
+
+      // Uncomment to sign and submit:
+      // const signedTx = await userWallet.signTx(result.txHex);
+      // const txHash = await userWallet.submitTx(signedTx);
+      // console.log("Submitted tx:", txHash);
+    }, 120000);
+
+    it("should create ADAUSDC sell intent (sell ADA for USDC)", async () => {
+      const utxos = await userWallet.getUtxos();
+      const collateral = await userWallet.getCollateral();
+
+      if (utxos.length === 0 || !collateral || collateral.length === 0) {
+        console.log("No UTxOs or collateral - skipping");
+        return;
+      }
+
+      // Fetch depth and calculate params
+      const swapParams = await calculateSwapParams("ADAUSDC", "sell", 100, 0.01);
+      console.log("Swap params:", swapParams);
+
+      const params = {
+        utxos,
+        collateral: collateral[0]!,
+        changeAddress: userAddress,
+        accountAddress: userAddress,
+        fromAmount: [{ unit: swapParams.fromUnit, quantity: swapParams.fromQuantity }],
+        toAmount: [{ unit: swapParams.toUnit, quantity: swapParams.toQuantity }],
+      };
+
+      console.log(`Building: ${swapParams.description}`);
+      const result = await swapIntentTx.createSwapIntent(params, blockfrost);
+
+      expect(result.txHex).toBeDefined();
+      console.log("txHex length:", result.txHex.length);
+      console.log("New UTxOs:", JSON.stringify(result.newUtxos, null, 2));
+
+      // Uncomment to sign and submit:
+      // const signedTx = await userWallet.signTx(result.txHex);
+      // const txHash = await userWallet.submitTx(signedTx);
+      // console.log("Submitted tx:", txHash);
+    }, 120000);
+
+    it("should create ADAUSDM buy intent", async () => {
+      const utxos = await userWallet.getUtxos();
+      const collateral = await userWallet.getCollateral();
+
+      if (utxos.length === 0 || !collateral || collateral.length === 0) {
+        console.log("No UTxOs or collateral - skipping");
+        return;
+      }
+
+      const swapParams = await calculateSwapParams("ADAUSDM", "buy", 100, 0.01);
+      console.log("Swap params:", swapParams);
+
+      const params = {
+        utxos,
+        collateral: collateral[0]!,
+        changeAddress: userAddress,
+        accountAddress: userAddress,
+        fromAmount: [{ unit: swapParams.fromUnit, quantity: swapParams.fromQuantity }],
+        toAmount: [{ unit: swapParams.toUnit, quantity: swapParams.toQuantity }],
+      };
+
+      console.log(`Building: ${swapParams.description}`);
+      const result = await swapIntentTx.createSwapIntent(params, blockfrost);
+
+      expect(result.txHex).toBeDefined();
+      console.log("txHex length:", result.txHex.length);
+
+      // Uncomment to sign and submit:
+      // const signedTx = await userWallet.signTx(result.txHex);
+      // const txHash = await userWallet.submitTx(signedTx);
+      // console.log("Submitted tx:", txHash);
+    }, 120000);
+
+    it("should create ADAUSDM sell intent", async () => {
+      const utxos = await userWallet.getUtxos();
+      const collateral = await userWallet.getCollateral();
+
+      if (utxos.length === 0 || !collateral || collateral.length === 0) {
+        console.log("No UTxOs or collateral - skipping");
+        return;
+      }
+
+      const swapParams = await calculateSwapParams("ADAUSDM", "sell", 100, 0.01);
+      console.log("Swap params:", swapParams);
+
+      const params = {
+        utxos,
+        collateral: collateral[0]!,
+        changeAddress: userAddress,
+        accountAddress: userAddress,
+        fromAmount: [{ unit: swapParams.fromUnit, quantity: swapParams.fromQuantity }],
+        toAmount: [{ unit: swapParams.toUnit, quantity: swapParams.toQuantity }],
+      };
+
+      console.log(`Building: ${swapParams.description}`);
+      const result = await swapIntentTx.createSwapIntent(params, blockfrost);
+
+      expect(result.txHex).toBeDefined();
+      console.log("txHex length:", result.txHex.length);
+
+      // Uncomment to sign and submit:
+      // const signedTx = await userWallet.signTx(result.txHex);
+      // const txHash = await userWallet.submitTx(signedTx);
+      // console.log("Submitted tx:", txHash);
     }, 120000);
   });
 
