@@ -1,0 +1,98 @@
+{
+  "name": "@deltadefi-protocol/khor",
+  "version": "1.0.9",
+  "description": "Khor transaction builder for Cardano L1 arbitrage swap protocol",
+  "main": "./dist/index.cjs",
+  "browser": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "transactions": [
+        "./dist/transactions/index.d.ts"
+      ],
+      "types": [
+        "./dist/lib/types.d.ts"
+      ],
+      "config": [
+        "./dist/lib/constant.d.ts"
+      ],
+      "blueprints": [
+        "./dist/lib/bar.d.ts"
+      ]
+    }
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./transactions": {
+      "types": "./dist/transactions/index.d.ts",
+      "import": "./dist/transactions/index.js",
+      "require": "./dist/transactions/index.cjs"
+    },
+    "./types": {
+      "types": "./dist/lib/types.d.ts",
+      "import": "./dist/lib/types.js",
+      "require": "./dist/lib/types.cjs"
+    },
+    "./config": {
+      "types": "./dist/lib/constant.d.ts",
+      "import": "./dist/lib/constant.js",
+      "require": "./dist/lib/constant.cjs"
+    },
+    "./blueprints": {
+      "types": "./dist/lib/bar.d.ts",
+      "import": "./dist/lib/bar.js",
+      "require": "./dist/lib/bar.cjs"
+    }
+  },
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "prebuild": "cp ../onchain/plutus.json src/lib/plutus.json",
+    "build": "tsup src/index.ts src/transactions/index.ts src/lib/types.ts src/lib/constant.ts src/lib/bar.ts --format esm,cjs --dts",
+    "dev": "tsup src/index.ts src/transactions/index.ts src/lib/types.ts src/lib/constant.ts src/lib/bar.ts --format esm,cjs --watch --dts",
+    "clean": "rm -rf .turbo && rm -rf dist && rm -rf node_modules",
+    "test": "jest",
+    "ci": "npm install && npm run build",
+    "pub": "npm run ci && npm publish --access public",
+    "lint": "eslint \"src/*.ts\" --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deltadefi-protocol/khor.git"
+  },
+  "keywords": [
+    "Cardano",
+    "Plutus",
+    "DeFi",
+    "Swap",
+    "Aiken"
+  ],
+  "author": "DeltaDeFi",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@meshsdk/core": "1.9.0-beta.101",
+    "@meshsdk/core-csl": "1.9.0-beta.101",
+    "@meshsdk/core-cst": "1.9.0-beta.101"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20",
+    "dotenv": "^17.3.1",
+    "jest": "^29.7.0",
+    "scalus": "^0.15.0",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
+    "tsup": "^8.0.2",
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
