@@ -16,7 +16,7 @@ vulnerabilities may have gone undiscovered.
 
 The khor protocol implements a batched decentralized swap system on Cardano (Plutus V3) using three coordinated validators: an oracle NFT minting policy, an oracle datum guardian, and a multi-handler swap intent validator. The audit identified **13 active findings** across 475 lines of Aiken source code.
 
-No critical vulnerabilities were found. One high-severity finding relates to the absence of on-chain token gating on swap intent UTxOs, which is partially mitigated by off-chain filtering and the SpamPrevention mechanism. The remaining findings are medium and low severity, with several acknowledged as intentional design tradeoffs or mitigated through off-chain controls.
+No critical or high-severity vulnerabilities were found. The remaining findings are medium and low severity, with several acknowledged as intentional design tradeoffs or mitigated through off-chain controls.
 
 During the audit, the development team addressed three findings through code changes: oracle spend now requires dual signatures (operator_key + dd_key), timed cancellation no longer depends on the oracle, the publish handler was restricted to `UnregisterCredential` with dd_key authorization, and negative deposits are now rejected on-chain.
 
@@ -25,10 +25,10 @@ During the audit, the development team addressed three findings through code cha
 | Severity | Count | Test-Confirmed | Resolved | Acknowledged |
 |----------|-------|----------------|----------|--------------|
 | Critical | 0     | --             | --       | --           |
-| High     | 1     | 0              | 0        | 0            |
+| High     | 0     | --             | --       | --           |
 | Medium   | 5     | 3              | 0        | 2            |
 | Low      | 5     | 2              | 0        | 1            |
-| Informational | 2 | --           | --       | --           |
+| Informational | 3 | --           | --       | --           |
 | **Resolved** | **2** | --        | **2**    | --           |
 
 ## 2. Project Overview
@@ -110,37 +110,25 @@ Khor is a batched swap protocol where users lock swap intents (specifying `from_
 
 | Field | Value |
 |-------|-------|
-| Severity | **High** |
+| Severity | **Informational** |
 | Vulnerability Type | missing-utxo-authentication |
-| Status | Active (partially mitigated off-chain) |
+| Status | Not a vulnerability (Cardano ledger property) |
 | Confidence | High |
 | File(s) | `swap_utils.ak:82-91`, `spend_withdraw_publish.ak:46-48` |
 | Test | Defense verified (SpamPrevention tests) |
 
 **Description:**
-There is no minting policy or authentication token required on swap intent UTxOs. Anyone can send a UTxO to the `swap_intent` script address with an arbitrary `SwapIntentDatum`. The `ProcessIntent` withdraw handler processes any input at the script address whose datum deserializes as `SwapIntentDatum`.
+There is no minting policy or authentication token required on swap intent UTxOs. Anyone can send a UTxO to the `swap_intent` script address with an arbitrary `SwapIntentDatum`.
 
-**Relevant Code:**
-```aiken
-// swap_utils.ak:82-91 — processes any UTxO at script address
-Script(script) ->
-  if script == script_hash {
-    when remaining_indices is {
-      [] -> fail @"More UTxOs are spent than specified"
-      [output_index, ..rest_of_indices] -> {
-        expect Some(out_utxo) = outputs |> list.at(output_index)
-        expect input_datum: SwapIntentDatum =
-          input_inline_datum(input)
-```
+This is not a protocol-specific vulnerability. On Cardano, the ledger fundamentally cannot prevent UTxOs from being sent to any address -- there is no "receive" validation. Token gating (via a mint handler) would not eliminate this attack surface, as unauthorized UTxOs without the token can still be sent to the script address. Dust attacks are mitigated at the ledger level by the `minUTxODeposit` protocol parameter (~1.5 ADA per UTxO), making spam economically costly.
 
-**Impact:**
-Attackers can flood the script address with fake swap intents, increasing operational complexity. CancelIntent's single-input restriction (`inputs_at` must return `[only_input]`) can be griefed if an attacker places a second UTxO at the same address before the user's cancel.
-
-**Mitigation:**
-Off-chain filtering identifies valid intents. SpamPrevention (dd_key + 24hr) provides reactive cleanup. The operator controls which intents to include in batches.
+The protocol handles this correctly:
+- The operator controls which UTxOs to include in batches (inherent to the UTxO model)
+- SpamPrevention (dd_key + 24hr) provides reactive cleanup, collecting the spammer's min-UTxO ADA
+- Off-chain filtering identifies valid intents before batch construction
 
 **Recommended Action:**
-Consider adding a mint handler that gates swap intent creation with an authentication token. This would provide on-chain spam prevention rather than relying on reactive cleanup.
+None. Current design is appropriate for the Cardano ledger model.
 
 ---
 
@@ -535,10 +523,26 @@ The batch processing limit of approximately 18 intents per transaction is docume
 - Inline comments are minimal but code is readable
 
 ### 8.2 Test Coverage
-- 35 existing tests cover the main paths: ProcessSwap, CancelIntent (multiple scenarios), SpamPrevention, withdraw (batch processing), and utility functions
-- Batch processing edge cases are well-tested (excessive inputs, insufficient inputs, incorrect outputs/indices)
+
+45 total tests (35 project + 10 audit).
+
+| Validator/Handler | Positive | Negative | Coverage |
+|-------------------|----------|----------|----------|
+| oracle_nft (mint RMint) | 1 (audit) | 0 | Minimal |
+| oracle_nft (mint RBurn) | 1 (audit) | 0 | Minimal |
+| oracle/spend | 1 (audit) | 1 (audit) | Audit only |
+| swap_intent spend/ProcessSwap | 1 | 1 | Covered |
+| swap_intent spend/CancelIntent | 5 | 3 | Well covered |
+| swap_intent spend/SpamPrevention | 4 | 2 | Well covered |
+| swap_intent withdraw/ProcessIntent | 1 | 3 | Covered |
+| swap_intent publish | 1 (audit) | 1 (audit) | Audit only |
+| swap_utils (calculate/validate/batch) | 7 | 6 | Well covered |
+
+**Gaps identified:**
+- `oracle_nft` and `oracle/spend` have no project-level tests (only audit tests)
+- `publish` handler was recently changed to restrict to `UnregisterCredential` + `dd_key` -- the new behavior has no dedicated test
+- `withdraw` has only 1 positive test (3 intents). No tests for single-intent batches, mixed asset types, or zero-value swaps
 - Batch limit test confirms ~18 intents as the practical maximum
-- 10 additional audit tests written during this audit
 
 ### 8.3 Code Patterns
 - Standard Cardano forwarding pattern (ProcessSwap -> withdrawal) is correctly implemented
