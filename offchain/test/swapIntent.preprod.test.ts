@@ -541,7 +541,7 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
 
       // Verify each UTxO has valid swap intent datum
       for (const utxo of intentUtxos) {
-        const info = parseSwapIntentDatum(utxo);
+        const info = parseSwapIntentDatum(utxo, 0);
         expect(info).not.toBeNull();
         expect(info?.accountAddress).toBeDefined();
         expect(info?.fromAmount).toBeDefined();
@@ -565,7 +565,7 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
 
       // Verify all returned UTxOs belong to the user
       for (const utxo of userIntents) {
-        const info = parseSwapIntentDatum(utxo);
+        const info = parseSwapIntentDatum(utxo, 0);
         expect(info).not.toBeNull();
         expect(info?.accountAddress).toBe(userAddress);
       }
@@ -594,7 +594,7 @@ describeIfConfigured("SwapIntentTx (preprod)", () => {
 
       for (const utxo of intentUtxos) {
         const isCancellable = swapIntentTx.isCancellable(utxo);
-        const info = parseSwapIntentDatum(utxo);
+        const info = parseSwapIntentDatum(utxo, 0);
         const cancellableAt = swapIntentTx.getCancellableAt(utxo);
 
         console.log(`Intent created at slot ${info?.createdAt}`);
