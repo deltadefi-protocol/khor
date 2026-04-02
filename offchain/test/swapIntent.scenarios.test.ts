@@ -8,22 +8,24 @@
 
 import { BlockfrostProvider, MeshWallet, UTxO } from "@meshsdk/core";
 import { SwapIntentTx } from "../src/transactions/swapIntent";
-import { KhorConstants, Network } from "../src/lib/constant";
+import {
+  KhorConstants,
+  preprodUsdcxUnit,
+  preprodUsdmUnit,
+  preprodNightUnit,
+} from "../src/lib/constant";
 import { parseSwapIntentDatum } from "../src/lib/types";
 
 // ============ Configuration ============
 const OPERATOR_BASE_URL = process.env.OPERATOR_URL || "http://localhost:3000";
 const BLOCKFROST_API_KEY = process.env.BLOCKFROST_API_KEY;
-const NETWORK = (process.env.NETWORK || "preprod") as Network;
-const NETWORK_ID = NETWORK === "mainnet" ? 1 : 0;
 
-// Token units (network-aware)
-const khorConfig = new KhorConstants(NETWORK);
+// Token units
 const TOKENS = {
   ADA: "lovelace",
-  USDM: khorConfig.tokens.usdm,
-  USDC: khorConfig.tokens.usdcx,
-  NIGHT: khorConfig.tokens.night,
+  USDM: preprodUsdmUnit,
+  USDC: preprodUsdcxUnit,
+  NIGHT: preprodNightUnit,
 };
 
 // ============ Types ============
@@ -365,13 +367,13 @@ describe("3. Swap Intent Processing (1-Pair)", () => {
     }
 
     userWallet = new MeshWallet({
-      networkId: NETWORK_ID,
+      networkId: 0,
       fetcher: blockfrost,
       submitter: blockfrost,
       key: { type: "mnemonic", words: userMnemonic.split(" ") },
     });
     userAddress = await userWallet.getChangeAddress();
-    khorConstants = new KhorConstants(NETWORK);
+    khorConstants = new KhorConstants("preprod");
     swapIntentTx = new SwapIntentTx(khorConstants);
   }, 60000);
 
@@ -1573,13 +1575,13 @@ describe("4. Swap Intent Processing (2-Pair)", () => {
     if (!userMnemonic) return;
 
     userWallet = new MeshWallet({
-      networkId: NETWORK_ID,
+      networkId: 0,
       fetcher: blockfrost,
       submitter: blockfrost,
       key: { type: "mnemonic", words: userMnemonic.split(" ") },
     });
     userAddress = await userWallet.getChangeAddress();
-    khorConstants = new KhorConstants(NETWORK);
+    khorConstants = new KhorConstants("preprod");
     swapIntentTx = new SwapIntentTx(khorConstants);
   }, 60000);
 
