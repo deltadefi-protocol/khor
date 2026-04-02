@@ -148,7 +148,7 @@ export class SwapIntentTx extends KhorTxBuilder {
   fetchSwapIntentUtxos = async (fetcher: IFetcher): Promise<UTxO[]> => {
     const allUtxos = await fetcher.fetchAddressUTxOs(this.swapIntentAddress);
     return allUtxos.filter((utxo) => {
-      const info = parseSwapIntentDatum(utxo);
+      const info = parseSwapIntentDatum(utxo, this.config.networkId);
       if (!info) return false;
       if (info.deposit !== undefined && info.deposit < 0) return false;
       // Check output value >= deposit + fromAmount
@@ -172,7 +172,7 @@ export class SwapIntentTx extends KhorTxBuilder {
   ): Promise<UTxO[]> => {
     const allUtxos = await this.fetchSwapIntentUtxos(fetcher);
     return allUtxos.filter((utxo) => {
-      const info = parseSwapIntentDatum(utxo);
+      const info = parseSwapIntentDatum(utxo, this.config.networkId);
       return info?.accountAddress === accountAddress;
     });
   };
@@ -182,7 +182,7 @@ export class SwapIntentTx extends KhorTxBuilder {
    * Returns true if cancellable now, false otherwise
    */
   isCancellable = (swapIntentUtxo: UTxO): boolean => {
-    const info = parseSwapIntentDatum(swapIntentUtxo);
+    const info = parseSwapIntentDatum(swapIntentUtxo, this.config.networkId);
     if (!info) return false;
 
     const networkName = this.config.networkId === 0 ? "preprod" : "mainnet";
@@ -197,7 +197,7 @@ export class SwapIntentTx extends KhorTxBuilder {
    * Returns the Unix timestamp (in ms) when the intent becomes cancellable
    */
   getCancellableAt = (swapIntentUtxo: UTxO): number | null => {
-    const info = parseSwapIntentDatum(swapIntentUtxo);
+    const info = parseSwapIntentDatum(swapIntentUtxo, this.config.networkId);
     if (!info) return null;
 
     const networkName = this.config.networkId === 0 ? "preprod" : "mainnet";
@@ -264,7 +264,7 @@ export class SwapIntentTx extends KhorTxBuilder {
     fetcher?: any,
   ): Promise<TxComplete> => {
     const intentUtxo = params.swapIntentUtxo;
-    const intentInfo = parseSwapIntentDatum(intentUtxo);
+    const intentInfo = parseSwapIntentDatum(intentUtxo, this.config.networkId);
     if (!intentInfo) {
       throw new Error("Invalid swap intent UTxO");
     }
@@ -370,7 +370,7 @@ export class SwapIntentTx extends KhorTxBuilder {
 
     // Parse all intent datums for user outputs (in sorted order)
     const intentInfos = sortedFills.map((fill) => {
-      const info = parseSwapIntentDatum(fill.utxo);
+      const info = parseSwapIntentDatum(fill.utxo, this.config.networkId);
       if (!info) {
         throw new Error("Invalid swap intent UTxO");
       }
