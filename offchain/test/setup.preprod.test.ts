@@ -6,7 +6,7 @@ import {
   outputReference,
 } from "@meshsdk/core";
 import { SetupTx } from "../src/transactions/setup";
-import { KhorConstants } from "../src/lib/constant";
+import { KhorConstants, Network } from "../src/lib/constant";
 import { OracleInfo } from "../src/lib/types";
 import {
   OracleNftMintBlueprint,
@@ -15,10 +15,12 @@ import {
 
 // Skip tests if env vars not set
 const BLOCKFROST_API_KEY = process.env.BLOCKFROST_API_KEY;
+const NETWORK = (process.env.NETWORK || "preprod") as Network;
+const NETWORK_ID = NETWORK === "mainnet" ? 1 : 0;
 
 const describeIfConfigured = BLOCKFROST_API_KEY ? describe : describe.skip;
 
-describeIfConfigured("SetupTx (preprod)", () => {
+describeIfConfigured(`SetupTx (${NETWORK})`, () => {
   let blockfrost: BlockfrostProvider;
   let ddWallet: MeshWallet;
   let ddAddress: string;
@@ -36,7 +38,7 @@ describeIfConfigured("SetupTx (preprod)", () => {
     }
 
     ddWallet = new MeshWallet({
-      networkId: 0,
+      networkId: NETWORK_ID,
       fetcher: blockfrost,
       submitter: blockfrost,
       key: {
@@ -47,6 +49,7 @@ describeIfConfigured("SetupTx (preprod)", () => {
 
     ddAddress = await ddWallet.getChangeAddress();
     ddVKey = deserializeAddress(ddAddress).pubKeyHash;
+    console.log(`Network: ${NETWORK} (networkId: ${NETWORK_ID})`);
     console.log("Test wallet address:", ddAddress);
   }, 60000);
 
@@ -71,7 +74,7 @@ describeIfConfigured("SetupTx (preprod)", () => {
       ]).hash;
 
       // Create a temporary config (oracle NFT policy ID will be determined by paramUtxo)
-      const tempConfig = new KhorConstants("preprod");
+      const tempConfig = new KhorConstants(NETWORK);
       tempConfig.oracleNftPolicyId = oracleNftPolicyId;
 
       const setupTx = new SetupTx(tempConfig);
@@ -79,13 +82,13 @@ describeIfConfigured("SetupTx (preprod)", () => {
       // Get the swap intent script hash (needed for oracle datum)
       // Note: This uses a placeholder oracle NFT policy ID, which means
       // the actual swap intent script hash will need the real policy ID
-      const swapIntentSpend = new SwapIntentSpendBlueprint(0, [
+      const swapIntentSpend = new SwapIntentSpendBlueprint(NETWORK_ID, [
         byteString(oracleNftPolicyId),
       ]);
 
       const operatorMnemonic = process.env.TEST_OPERATOR_MNEMONIC!;
       const operatorWallet = new MeshWallet({
-        networkId: 0,
+        networkId: NETWORK_ID,
         fetcher: blockfrost,
         submitter: blockfrost,
         key: {
@@ -151,17 +154,18 @@ describeIfConfigured("SetupTx (preprod)", () => {
       }
       const collateralUtxo = collateral[0]!;
 
-      const config = new KhorConstants("preprod");
+      const config = new KhorConstants(NETWORK);
       config.oracleNftPolicyId = oracleNftPolicyId;
 
       const setupTx = new SetupTx(config);
+
+      const refScriptAddress = process.env.REF_SCRIPT_ADDRESS || ddAddress;
 
       const params = {
         utxos,
         collateral: collateralUtxo,
         changeAddress: ddAddress,
-        refScriptAddress:
-          "addr_test1qrt4eqny7x5p3ef2p564amsqkpq8xymt3qrhj753njk9knarp2tyv20ff79pqmw3rkg656f67t3m76drluak83ggd69qqleqsc", // Send ref scripts to own address
+        refScriptAddress, // Send ref scripts to specified address or own address
       };
 
       console.log("Building txOutRefScripts transaction...");
@@ -199,7 +203,7 @@ describeIfConfigured("SetupTx (preprod)", () => {
       }
       const collateralUtxo = collateral[0]!;
 
-      const config = new KhorConstants("preprod");
+      const config = new KhorConstants(NETWORK);
       config.oracleNftPolicyId = oracleNftPolicyId;
 
       const setupTx = new SetupTx(config);
