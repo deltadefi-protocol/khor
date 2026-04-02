@@ -143,13 +143,21 @@ export class SwapIntentTx extends KhorTxBuilder {
 
   /**
    * Fetch all swap intent UTxOs at the script address
+   * Excludes invalid intents (negative deposit)
    */
   fetchSwapIntentUtxos = async (fetcher: IFetcher): Promise<UTxO[]> => {
-    return fetcher.fetchAddressUTxOs(this.swapIntentAddress);
+    const allUtxos = await fetcher.fetchAddressUTxOs(this.swapIntentAddress);
+    return allUtxos.filter((utxo) => {
+      const info = parseSwapIntentDatum(utxo);
+      if (!info) return false;
+      if (info.deposit !== undefined && info.deposit < 0) return false;
+      return true;
+    });
   };
 
   /**
    * Fetch swap intent UTxOs filtered by account address
+   * Excludes invalid intents (negative deposit)
    */
   fetchSwapIntentUtxosByAddress = async (
     fetcher: IFetcher,
@@ -158,7 +166,9 @@ export class SwapIntentTx extends KhorTxBuilder {
     const allUtxos = await this.fetchSwapIntentUtxos(fetcher);
     return allUtxos.filter((utxo) => {
       const info = parseSwapIntentDatum(utxo);
-      return info?.accountAddress === accountAddress;
+      if (!info) return false;
+      if (info.deposit !== undefined && info.deposit < 0) return false;
+      return info.accountAddress === accountAddress;
     });
   };
 
