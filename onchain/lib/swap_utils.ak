@@ -98,6 +98,7 @@ pub fn process_batched_swap_intent_validation(
                     ..
                   } = input_datum
 
+                  expect deposit >= 0
                   let new_cal_vault_net_outflow =
                     cal_vault_net_outflow
                       |> merge(
