@@ -1,6 +1,6 @@
 {
   "name": "@deltadefi-protocol/khor",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Khor transaction builder for Cardano L1 arbitrage swap protocol",
   "main": "./dist/index.cjs",
   "browser": "./dist/index.js",
