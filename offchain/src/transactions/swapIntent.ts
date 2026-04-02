@@ -143,7 +143,7 @@ export class SwapIntentTx extends KhorTxBuilder {
 
   /**
    * Fetch all swap intent UTxOs at the script address
-   * Excludes invalid intents (negative deposit)
+   * Excludes invalid intents (negative deposit, insufficient value)
    */
   fetchSwapIntentUtxos = async (fetcher: IFetcher): Promise<UTxO[]> => {
     const allUtxos = await fetcher.fetchAddressUTxOs(this.swapIntentAddress);
@@ -151,13 +151,20 @@ export class SwapIntentTx extends KhorTxBuilder {
       const info = parseSwapIntentDatum(utxo);
       if (!info) return false;
       if (info.deposit !== undefined && info.deposit < 0) return false;
+      // Check output value >= deposit + fromAmount
+      const utxoValue = MeshValue.fromAssets(utxo.output.amount);
+      const expectedValue = MeshValue.fromAssets(info.fromAmount).addAsset({
+        unit: "lovelace",
+        quantity: (info.deposit ?? DEFAULT_DEPOSIT).toString(),
+      });
+      if (!utxoValue.geq(expectedValue)) return false;
       return true;
     });
   };
 
   /**
    * Fetch swap intent UTxOs filtered by account address
-   * Excludes invalid intents (negative deposit)
+   * Excludes invalid intents (negative deposit, insufficient value)
    */
   fetchSwapIntentUtxosByAddress = async (
     fetcher: IFetcher,
@@ -166,9 +173,7 @@ export class SwapIntentTx extends KhorTxBuilder {
     const allUtxos = await this.fetchSwapIntentUtxos(fetcher);
     return allUtxos.filter((utxo) => {
       const info = parseSwapIntentDatum(utxo);
-      if (!info) return false;
-      if (info.deposit !== undefined && info.deposit < 0) return false;
-      return info.accountAddress === accountAddress;
+      return info?.accountAddress === accountAddress;
     });
   };
 
