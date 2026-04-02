@@ -88,7 +88,7 @@ export const spamPrevention = (): SpamPrevention =>
 export const processIntent = (indices: number[]): ProcessIntent =>
   conStr0([list(indices.map((i) => integer(i)))]) as ProcessIntent;
 
-export const parseSwapIntentDatum = (utxo: UTxO): SwapIntentInfo | null => {
+export const parseSwapIntentDatum = (utxo: UTxO, networkId: 0 | 1): SwapIntentInfo | null => {
   if (!utxo.output.plutusData) return null;
 
   try {
@@ -101,7 +101,7 @@ export const parseSwapIntentDatum = (utxo: UTxO): SwapIntentInfo | null => {
     const deposit = Number(datum.fields[4].int);
 
     return {
-      accountAddress: serializeAddressObj(addressData),
+      accountAddress: serializeAddressObj(addressData, networkId),
       fromAmount: MeshValue.fromValue(fromAmountData).toAssets(),
       toAmount: MeshValue.fromValue(toAmountData).toAssets(),
       createdAt,
