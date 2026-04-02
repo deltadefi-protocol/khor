@@ -25,6 +25,7 @@ const version = "V3";
 // Recommend replace with your own stake key / script hash
 const stakeKeyHash = "";
 const isStakeScriptCredential = false;
+const appStakeKey = "dffbf7f03708563397c2b9e959de979e29b695857b3f6ccb528487ed";
 
 export class SwapOracleSpendBlueprint extends SpendingBlueprint {
   compiledCode: string;
@@ -59,7 +60,7 @@ export class SwapIntentSpendBlueprint extends SpendingBlueprint {
 
   constructor(networkId: 0 | 1, params: [PolicyId]) {
     const compiledCode = blueprint.validators[4]!.compiledCode;
-    super(version, networkId, stakeKeyHash, isStakeScriptCredential);
+    super(version, networkId, appStakeKey, isStakeScriptCredential);
     this.compiledCode = compiledCode;
     this.paramScript(compiledCode, params, "JSON");
   }
