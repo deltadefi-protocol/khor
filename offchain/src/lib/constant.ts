@@ -13,10 +13,10 @@ export const preprodOracleUtxoTxHash =
 export const preprodOracleUtxoOutputIndex = 0;
 
 // Mainnet constants
-export const mainnetOracleNftPolicyId = "";
-export const mainnetRefScriptTxHash = "";
+export const mainnetOracleNftPolicyId = "280c66650be4af3d71e7817a517eca52377ab47bf87305d63093f52d";
+export const mainnetRefScriptTxHash = "515ca6433f101d9a0eab871b4dde650f2524fca61d44065a2d421c178b281b88";
 export const mainnetRefScriptOutputIndex = 0;
-export const mainnetOracleUtxoTxHash = "";
+export const mainnetOracleUtxoTxHash = "e099c4bafd0523e08238be2f48cd2f9a4994277693f2bbe5adb7f2db204b8219";
 export const mainnetOracleUtxoOutputIndex = 0;
 
 // Preprod token units
