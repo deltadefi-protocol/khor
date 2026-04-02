@@ -1,7 +1,7 @@
 use aiken/interval.{is_entirely_after, is_entirely_before}
 use cardano/address.{Credential, Script}
 use cardano/assets.{PolicyId, add, merge}
-use cardano/certificate.{Certificate, UnregisterCredential}
+use cardano/certificate.{Certificate, RegisterCredential, UnregisterCredential}
 use cardano/transaction.{OutputReference, Transaction, find_input}
 use cocktail.{
   address_payment_key, all_key_signed, get_all_value_from_cred,
@@ -175,6 +175,7 @@ validator swap_intent(oracle_nft: PolicyId) {
 
   publish(_r, certificate: Certificate, self: Transaction) {
     when certificate is {
+      RegisterCredential { .. } -> True
       UnregisterCredential { .. } -> {
         let Transaction { reference_inputs, extra_signatories, .. } = self
 
