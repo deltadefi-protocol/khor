@@ -1,15 +1,17 @@
 import {
   BlockfrostProvider,
   MeshWallet,
+  UTxO,
   byteString,
   outputReference,
 } from "@meshsdk/core";
 import { SetupTx } from "../src/transactions/setup";
 import { KhorConstants, Network } from "../src/lib/constant";
-import { OracleInfo } from "../src/lib/types";
+import { OracleInfo, parseVaultOracleDatum } from "../src/lib/types";
 import {
   OracleNftMintBlueprint,
   SwapIntentSpendBlueprint,
+  SwapOracleSpendBlueprint,
 } from "../src/lib/bar";
 
 // Skip tests if env vars not set
@@ -221,6 +223,97 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
       // Uncomment to submit:
       const txHash = await wallet.submitTx(signedTx);
       console.log("Submitted tx:", txHash);
+    }, 120000);
+  });
+
+  describe("updateOracleConfig", () => {
+    it("should update oracle vault cred and swap intent script hash", async () => {
+      const oracleNftPolicyId = process.env.ORACLE_NFT_POLICY_ID;
+      if (!oracleNftPolicyId) {
+        console.log("ORACLE_NFT_POLICY_ID not set - skipping");
+        return;
+      }
+
+      const utxos = await wallet.getUtxos();
+      const collateral = await wallet.getCollateral();
+
+      if (!collateral || collateral.length === 0) {
+        throw new Error("No collateral set in test wallet");
+      }
+      const collateralUtxo = collateral[0]!;
+
+      const config = new KhorConstants(NETWORK);
+      config.oracleNftPolicyId = oracleNftPolicyId;
+
+      const setupTx = new SetupTx(config);
+
+      // Fetch oracle UTxO (holds the oracle NFT)
+      const oracleSpend = new SwapOracleSpendBlueprint(NETWORK_ID, [
+        byteString(oracleNftPolicyId),
+      ]);
+      const oracleAddress = oracleSpend.address;
+
+      const oracleUtxos = await blockfrost.fetchAddressUTxOs(
+        oracleAddress,
+        oracleNftPolicyId,
+      );
+
+      if (oracleUtxos.length === 0) {
+        throw new Error("No oracle UTxO found");
+      }
+      const oracleUtxo: UTxO = oracleUtxos[0]!;
+      console.log("Oracle UTxO:", oracleUtxo.input);
+
+      const currentInfo = parseVaultOracleDatum(oracleUtxo);
+      if (!currentInfo) {
+        throw new Error("Failed to parse current oracle datum");
+      }
+      console.log("Current oracle info:", currentInfo);
+
+      // New swap intent script hash derived from current policy id (same in this test)
+      const swapIntentSpend = new SwapIntentSpendBlueprint(NETWORK_ID, [
+        byteString(oracleNftPolicyId),
+      ]);
+
+      // Allow overrides via env; defaults keep operator vault cred, rotate swap intent
+      const newVaultScriptHash =
+        process.env.NEW_VAULT_SCRIPT_HASH ?? currentInfo.vaultScriptHash;
+      const newIsVaultScript =
+        process.env.NEW_IS_VAULT_SCRIPT !== undefined
+          ? process.env.NEW_IS_VAULT_SCRIPT === "true"
+          : currentInfo.isVaultScript;
+      const newSwapIntentScriptHash =
+        process.env.NEW_SWAP_INTENT_SCRIPT_HASH ?? swapIntentSpend.hash;
+
+      const params = {
+        utxos,
+        collateral: collateralUtxo,
+        changeAddress: walletAddress,
+        oracleUtxo,
+        newVaultScriptHash,
+        newIsVaultScript,
+        newSwapIntentScriptHash,
+      };
+
+      console.log("Building updateOracleConfig transaction...");
+      console.log("New vaultScriptHash:", newVaultScriptHash);
+      console.log("New isVaultScript:", newIsVaultScript);
+      console.log("New swapIntentScriptHash:", newSwapIntentScriptHash);
+
+      const result = await setupTx.updateOracleConfig(params, blockfrost);
+
+      console.log("txHex length:", result.txHex.length);
+      expect(result.txHex).toBeDefined();
+      expect(result.txHex.length).toBeGreaterThan(0);
+
+      // Sign with test wallet (must hold both operator and dd keys, or sign
+      // externally — otherwise the submitted tx will fail signature checks).
+      const signedTx = await wallet.signTx(result.txHex, true);
+      console.log("Transaction signed successfully");
+
+      // Uncomment to submit:
+      // const txHash = await wallet.submitTx(signedTx);
+      // console.log("Submitted tx:", txHash);
     }, 120000);
   });
 });
