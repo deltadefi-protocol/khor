@@ -1,6 +1,7 @@
 import {
   Asset,
   byteString,
+  conStr3,
   MeshValue,
   resolveSlotNo,
   IFetcher,
@@ -30,6 +31,7 @@ import {
   DEFAULT_DEPOSIT,
 } from "../lib/types";
 import { csl, OfflineEvaluator } from "@meshsdk/core-csl";
+import { scriptHashToRewardAddress } from "@meshsdk/core-cst";
 
 const selectUtxosForWithdrawal = (
   availableUtxos: UTxO[],
@@ -113,6 +115,17 @@ export interface ProcessSwapIntentsParams extends TxParams {
 export interface ProcessSwapIntentsResult extends TxComplete {
   feePerIntent: string;
   intentCount: number;
+}
+
+export interface ProcessSwapIntentsWithVaultAggregatorParams extends TxParams {
+  oracleUtxo: UTxO;
+  /** Vault aggregator oracle UTxO — attached as reference input only */
+  vaultAggregatorOracleUtxo: UTxO;
+  swapIntentFills: SwapIntentFill[];
+  /** Script-locked vault UTxOs; each will be spent with conStr3([]) redeemer */
+  vaultInputUtxos: UTxO[];
+  /** CBOR of the vault spending script (applied to all vault inputs) */
+  vaultScriptCbor: string;
 }
 
 export class SwapIntentTx extends KhorTxBuilder {
@@ -543,6 +556,237 @@ export class SwapIntentTx extends KhorTxBuilder {
     const txHex = await buildTx(exUnits);
 
     // Extract fee from transaction and calculate fee per intent
+    const tx = csl.Transaction.from_hex(txHex);
+    const totalFee = BigInt(tx.body().fee().to_str());
+    const intentCount = sortedFills.length;
+    const feePerIntent = (totalFee / BigInt(intentCount)).toString();
+
+    return {
+      txHex,
+      spentUtxos: extractSpentUtxos(txHex),
+      newUtxos: extractNewUtxos(txHex),
+      feePerIntent,
+      intentCount,
+    };
+  };
+
+  /**
+   * Process multiple swap intents in a batch, where the vault is a script.
+   *
+   * Mirrors processSwapIntents, but:
+   * - Attaches the vault aggregator oracle UTxO as a reference input only.
+   * - Spends each vault input as a Plutus V3 script input using the provided
+   *   script CBOR and a constr-3 (empty fields) redeemer.
+   */
+  processSwapIntentsWithVaultAggregator = async (
+    params: ProcessSwapIntentsWithVaultAggregatorParams,
+    fetcher?: any,
+  ): Promise<ProcessSwapIntentsResult> => {
+    const oracleInfo = parseVaultOracleDatum(params.oracleUtxo);
+    if (!oracleInfo) {
+      throw new Error("Invalid oracle UTxO");
+    }
+
+    const sortedFills = [...params.swapIntentFills].sort((a, b) => {
+      const txHashCompare = a.utxo.input.txHash.localeCompare(
+        b.utxo.input.txHash,
+      );
+      if (txHashCompare !== 0) return txHashCompare;
+      return a.utxo.input.outputIndex - b.utxo.input.outputIndex;
+    });
+
+    const intentInfos = sortedFills.map((fill) => {
+      const info = parseSwapIntentDatum(fill.utxo, this.config.networkId);
+      if (!info) {
+        throw new Error("Invalid swap intent UTxO");
+      }
+      return info;
+    });
+
+    const totalFromAmount = new MeshValue();
+    const totalOutputAmount = new MeshValue();
+    for (const intentInfo of intentInfos) {
+      totalFromAmount.addAssets(intentInfo.fromAmount);
+    }
+    for (const fill of sortedFills) {
+      totalOutputAmount.addAssets(fill.outputAmount);
+    }
+
+    const { selectedUtxos, returnValue } = selectUtxosForWithdrawal(
+      params.vaultInputUtxos,
+      totalOutputAmount.toAssets(),
+    );
+
+    const vaultReturnValue = MeshValue.fromAssets(returnValue)
+      .addAssets(totalFromAmount.toAssets())
+      .toAssets();
+
+    let outputIndex = 1; // vault change at index 0
+    const userOutputIndices: number[] = [];
+    for (let i = 0; i < intentInfos.length; i++) {
+      userOutputIndices.push(outputIndex);
+      outputIndex++;
+    }
+
+    const vaultScriptSize = (params.vaultScriptCbor.length / 2).toString();
+
+    const buildTx = async (exUnits?: {
+      vaultSpend: { mem: number; steps: number };
+      intentSpend: { mem: number; steps: number };
+      withdraw: { mem: number; steps: number };
+    }) => {
+      const txBuilder = this.newValidationTx(params, fetcher, false);
+
+      txBuilder
+        .readOnlyTxInReference(
+          params.oracleUtxo.input.txHash,
+          params.oracleUtxo.input.outputIndex,
+        )
+        .readOnlyTxInReference(
+          params.vaultAggregatorOracleUtxo.input.txHash,
+          params.vaultAggregatorOracleUtxo.input.outputIndex,
+        );
+
+      // Spend vault inputs as script UTxOs with constr3([]) redeemer
+      for (const vaultUtxo of selectedUtxos) {
+        txBuilder
+          .spendingPlutusScriptV3()
+          .txIn(
+            vaultUtxo.input.txHash,
+            vaultUtxo.input.outputIndex,
+            vaultUtxo.output.amount,
+            vaultUtxo.output.address,
+            0,
+          )
+          .txInInlineDatumPresent()
+          .txInRedeemerValue(conStr3([]), "JSON", exUnits?.vaultSpend)
+          .txInScript(params.vaultScriptCbor)
+          .inputForEvaluation(vaultUtxo);
+      }
+
+      // Spend all swap intent UTxOs
+      for (const fill of sortedFills) {
+        txBuilder
+          .spendingPlutusScriptV3()
+          .txIn(
+            fill.utxo.input.txHash,
+            fill.utxo.input.outputIndex,
+            fill.utxo.output.amount,
+            fill.utxo.output.address,
+            0,
+          )
+          .txInInlineDatumPresent()
+          .txInRedeemerValue(processSwap(), "JSON", exUnits?.intentSpend)
+          .spendingTxInReference(
+            this.config.refScripts.swapIntent.txHash,
+            this.config.refScripts.swapIntent.outputIndex,
+            (this.swapIntentSpend.cbor.length / 2).toString(),
+            this.swapIntentSpend.hash,
+          )
+          .inputForEvaluation(fill.utxo);
+      }
+
+      // Vault return output (index 0)
+      if (vaultReturnValue.length > 0) {
+        txBuilder.txOut(
+          params.vaultInputUtxos[0]!.output.address,
+          vaultReturnValue,
+        );
+      }
+
+      // User outputs
+      for (let i = 0; i < sortedFills.length; i++) {
+        const fill = sortedFills[i]!;
+        const intentInfo = intentInfos[i]!;
+        const outputValue = MeshValue.fromAssets(fill.outputAmount);
+        outputValue.addAssets([
+          {
+            unit: "lovelace",
+            quantity: (intentInfo.deposit ?? DEFAULT_DEPOSIT).toString(),
+          },
+        ]);
+        txBuilder.txOut(intentInfo.accountAddress, outputValue.toAssets());
+      }
+
+      txBuilder
+        .withdrawalPlutusScriptV3()
+        .withdrawal(this.swapIntentWithdraw.address, "0")
+        .withdrawalTxInReference(
+          this.config.refScripts.swapIntent.txHash,
+          this.config.refScripts.swapIntent.outputIndex,
+          (this.swapIntentWithdraw.cbor.length / 2).toString(),
+          this.swapIntentWithdraw.hash,
+        )
+        .withdrawalRedeemerValue(
+          processIntent(userOutputIndices),
+          "JSON",
+          exUnits?.withdraw,
+        )
+        // vault aggregator withdrawal check
+        .withdrawalPlutusScriptV3()
+        .withdrawal(
+          scriptHashToRewardAddress(
+            oracleInfo.vaultScriptHash,
+            this.config.networkId,
+          ),
+          "0",
+        )
+        .withdrawalScript(params.vaultScriptCbor)
+        .withdrawalRedeemerValue("", "Mesh", exUnits?.withdraw)
+        .requiredSignerHash(oracleInfo.ddKey)
+        .requiredSignerHash(oracleInfo.operatorKey);
+
+      return txBuilder.complete();
+    };
+
+    const initialTxHex = await buildTx();
+
+    const evaluator = new OfflineEvaluator(
+      fetcher,
+      this.config.networkId === 0 ? "preprod" : "mainnet",
+    );
+
+    const additionalUtxos: UTxO[] = [
+      ...params.utxos,
+      params.oracleUtxo,
+      params.vaultAggregatorOracleUtxo,
+      ...sortedFills.map((f) => f.utxo),
+      ...selectedUtxos,
+    ];
+
+    const evalResult = await evaluator.evaluateTx(
+      initialTxHex,
+      additionalUtxos,
+      [],
+    );
+
+    // Partition SPEND budgets: vault inputs appear before intent inputs in
+    // Cardano's canonical (txHash, index) input ordering — but we can't rely
+    // on that, so we conservatively use the max across all SPEND results for
+    // both vault and intent redeemers.
+    const exUnits = {
+      vaultSpend: { mem: 0, steps: 0 },
+      intentSpend: { mem: 0, steps: 0 },
+      withdraw: { mem: 0, steps: 0 },
+    };
+    for (const result of evalResult) {
+      if (result.tag === "SPEND") {
+        const maxed = {
+          mem: Math.max(exUnits.vaultSpend.mem, result.budget.mem),
+          steps: Math.max(exUnits.vaultSpend.steps, result.budget.steps),
+        };
+        exUnits.vaultSpend = maxed;
+        exUnits.intentSpend = maxed;
+      } else if (result.tag === "REWARD") {
+        exUnits.withdraw = {
+          mem: result.budget.mem,
+          steps: result.budget.steps,
+        };
+      }
+    }
+
+    const txHex = await buildTx(exUnits);
+
     const tx = csl.Transaction.from_hex(txHex);
     const totalFee = BigInt(tx.body().fee().to_str());
     const intentCount = sortedFills.length;

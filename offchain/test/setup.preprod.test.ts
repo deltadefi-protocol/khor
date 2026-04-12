@@ -308,7 +308,7 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
 
       // Sign with test wallet (must hold both operator and dd keys, or sign
       // externally — otherwise the submitted tx will fail signature checks).
-      const signedTx = await wallet.signTx(result.txHex, true);
+      await wallet.signTx(result.txHex, true);
       console.log("Transaction signed successfully");
 
       // Uncomment to submit:
