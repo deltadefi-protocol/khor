@@ -18,7 +18,7 @@ import {
 const BLOCKFROST_API_KEY = process.env.BLOCKFROST_API_KEY;
 const NETWORK = (process.env.NETWORK || "preprod") as Network;
 const NETWORK_ID = NETWORK === "mainnet" ? 1 : 0;
-const DD_VKEY = process.env.DD_VKEY;
+const OWNER_VKEY = process.env.OWNER_VKEY;
 const OPERATOR_VKEY = process.env.OPERATOR_VKEY;
 
 const describeIfConfigured = BLOCKFROST_API_KEY ? describe : describe.skip;
@@ -31,8 +31,7 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
   beforeAll(async () => {
     blockfrost = new BlockfrostProvider(BLOCKFROST_API_KEY!);
 
-    const walletMnemonic = process.env.TEST_WALLET_MNEMONIC;
-    console.log(walletMnemonic);
+    const walletMnemonic = process.env.TEST_OPERATOR_MNEMONIC;
 
     if (!walletMnemonic) {
       throw new Error("TEST_WALLET_MNEMONIC environment variable required");
@@ -57,13 +56,13 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
 
   describe("mintOracleNft", () => {
     it("should mint oracle NFT and create oracle UTxO", async () => {
-      if (!DD_VKEY || !OPERATOR_VKEY) {
-        console.log("DD_VKEY or OPERATOR_VKEY not set - skipping");
+      if (!OWNER_VKEY || !OPERATOR_VKEY) {
+        console.log("OWNER_VKEY or OPERATOR_VKEY not set - skipping");
         return;
       }
 
-      const utxos = await wallet.getUtxos();
-      const collateral = await wallet.getCollateral();
+      const utxos = await wallet.getUtxos("payment");
+      const collateral = await wallet.getCollateral("enterprise");
 
       if (utxos.length === 0) {
         throw new Error("No UTxOs available in test wallet");
@@ -96,7 +95,7 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
         isVaultScript: false,
         swapIntentScriptHash: swapIntentSpend.hash,
         operatorKey: OPERATOR_VKEY,
-        ddKey: DD_VKEY,
+        ddKey: OWNER_VKEY,
       };
 
       const params = {
@@ -109,7 +108,7 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
 
       console.log("Building mintOracleNft transaction...");
       console.log("Using paramUtxo:", paramUtxo!.input);
-      console.log("DD_VKEY:", DD_VKEY);
+      console.log("OWNER_VKEY:", OWNER_VKEY);
       console.log("OPERATOR_VKEY:", OPERATOR_VKEY);
 
       const result = await setupTx.mintOracleNft(params, blockfrost);
@@ -140,8 +139,8 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
         return;
       }
 
-      const utxos = await wallet.getUtxos();
-      const collateral = await wallet.getCollateral();
+      const utxos = await wallet.getUtxos("payment");
+      const collateral = await wallet.getCollateral("enterprise");
 
       if (!collateral || collateral.length === 0) {
         throw new Error("No collateral set in test wallet");
@@ -189,8 +188,8 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
         return;
       }
 
-      const utxos = await wallet.getUtxos();
-      const collateral = await wallet.getCollateral();
+      const utxos = await wallet.getUtxos("payment");
+      const collateral = await wallet.getCollateral("enterprise");
 
       if (!collateral || collateral.length === 0) {
         throw new Error("No collateral set in test wallet");
@@ -234,8 +233,8 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
         return;
       }
 
-      const utxos = await wallet.getUtxos();
-      const collateral = await wallet.getCollateral();
+      const utxos = await wallet.getUtxos("payment");
+      const collateral = await wallet.getCollateral("enterprise");
 
       if (!collateral || collateral.length === 0) {
         throw new Error("No collateral set in test wallet");
@@ -308,12 +307,25 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
 
       // Sign with test wallet (must hold both operator and dd keys, or sign
       // externally — otherwise the submitted tx will fail signature checks).
-      await wallet.signTx(result.txHex, true);
+      const signedTx = await wallet.signTx(result.txHex, true);
       console.log("Transaction signed successfully");
 
       // Uncomment to submit:
-      // const txHash = await wallet.submitTx(signedTx);
-      // console.log("Submitted tx:", txHash);
+
+      const ddWalletMnemonic = process.env.TEST_DD_MNEMONIC!;
+
+      const ddWallet = new MeshWallet({
+        networkId: NETWORK_ID,
+        fetcher: blockfrost,
+        submitter: blockfrost,
+        key: {
+          type: "mnemonic",
+          words: ddWalletMnemonic.split(" "),
+        },
+      });
+      const fullySignedTx = await ddWallet.signTx(signedTx, true);
+      const txHash = await ddWallet.submitTx(fullySignedTx);
+      console.log("Submitted tx:", txHash);
     }, 120000);
   });
 });

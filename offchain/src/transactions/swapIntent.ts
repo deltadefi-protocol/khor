@@ -612,39 +612,46 @@ export class SwapIntentTx extends KhorTxBuilder {
       totalOutputAmount.addAssets(fill.outputAmount);
     }
 
-    const { selectedUtxos, returnValue } = selectUtxosForWithdrawal(
+    const { selectedUtxos } = selectUtxosForWithdrawal(
       params.vaultInputUtxos,
       totalOutputAmount.toAssets(),
     );
 
-    const vaultReturnValue = MeshValue.fromAssets(returnValue)
-      .addAssets(totalFromAmount.toAssets())
-      .toAssets();
-
-    let outputIndex = 1; // vault change at index 0
+    let outputIndex = 0; // vault change at index 0
     const userOutputIndices: number[] = [];
     for (let i = 0; i < intentInfos.length; i++) {
       userOutputIndices.push(outputIndex);
       outputIndex++;
     }
 
-    const vaultScriptSize = (params.vaultScriptCbor.length / 2).toString();
+    // Reward addresses for both withdrawal scripts
+    const swapIntentRewardAddr = this.swapIntentWithdraw.address;
+    const vaultRewardAddr = scriptHashToRewardAddress(
+      oracleInfo.vaultScriptHash,
+      this.config.networkId,
+    );
 
-    const buildTx = async (exUnits?: {
-      vaultSpend: { mem: number; steps: number };
-      intentSpend: { mem: number; steps: number };
-      withdraw: { mem: number; steps: number };
-    }) => {
-      const txBuilder = this.newValidationTx(params, fetcher, false);
+    const spendKey = (ref: { txHash: string; outputIndex: number }) =>
+      `${ref.txHash}#${ref.outputIndex}`;
+
+    type ExUnit = { mem: number; steps: number };
+
+    const buildTx = async (
+      spendExUnits?: Map<string, ExUnit>,
+      withdrawExUnits?: Map<string, ExUnit>,
+    ) => {
+      const txBuilder = this.newValidationTx(params, fetcher, false, true);
 
       txBuilder
         .readOnlyTxInReference(
           params.oracleUtxo.input.txHash,
           params.oracleUtxo.input.outputIndex,
+          0,
         )
         .readOnlyTxInReference(
           params.vaultAggregatorOracleUtxo.input.txHash,
           params.vaultAggregatorOracleUtxo.input.outputIndex,
+          0,
         );
 
       // Spend vault inputs as script UTxOs with constr3([]) redeemer
@@ -659,7 +666,11 @@ export class SwapIntentTx extends KhorTxBuilder {
             0,
           )
           .txInInlineDatumPresent()
-          .txInRedeemerValue(conStr3([]), "JSON", exUnits?.vaultSpend)
+          .txInRedeemerValue(
+            conStr3([]),
+            "JSON",
+            spendExUnits?.get(spendKey(vaultUtxo.input)),
+          )
           .txInScript(params.vaultScriptCbor)
           .inputForEvaluation(vaultUtxo);
       }
@@ -676,7 +687,11 @@ export class SwapIntentTx extends KhorTxBuilder {
             0,
           )
           .txInInlineDatumPresent()
-          .txInRedeemerValue(processSwap(), "JSON", exUnits?.intentSpend)
+          .txInRedeemerValue(
+            processSwap(),
+            "JSON",
+            spendExUnits?.get(spendKey(fill.utxo.input)),
+          )
           .spendingTxInReference(
             this.config.refScripts.swapIntent.txHash,
             this.config.refScripts.swapIntent.outputIndex,
@@ -684,14 +699,6 @@ export class SwapIntentTx extends KhorTxBuilder {
             this.swapIntentSpend.hash,
           )
           .inputForEvaluation(fill.utxo);
-      }
-
-      // Vault return output (index 0)
-      if (vaultReturnValue.length > 0) {
-        txBuilder.txOut(
-          params.vaultInputUtxos[0]!.output.address,
-          vaultReturnValue,
-        );
       }
 
       // User outputs
@@ -710,7 +717,7 @@ export class SwapIntentTx extends KhorTxBuilder {
 
       txBuilder
         .withdrawalPlutusScriptV3()
-        .withdrawal(this.swapIntentWithdraw.address, "0")
+        .withdrawal(swapIntentRewardAddr, "0")
         .withdrawalTxInReference(
           this.config.refScripts.swapIntent.txHash,
           this.config.refScripts.swapIntent.outputIndex,
@@ -720,26 +727,27 @@ export class SwapIntentTx extends KhorTxBuilder {
         .withdrawalRedeemerValue(
           processIntent(userOutputIndices),
           "JSON",
-          exUnits?.withdraw,
+          withdrawExUnits?.get(swapIntentRewardAddr),
         )
         // vault aggregator withdrawal check
         .withdrawalPlutusScriptV3()
-        .withdrawal(
-          scriptHashToRewardAddress(
-            oracleInfo.vaultScriptHash,
-            this.config.networkId,
-          ),
-          "0",
-        )
+        .withdrawal(vaultRewardAddr, "0")
         .withdrawalScript(params.vaultScriptCbor)
-        .withdrawalRedeemerValue("", "Mesh", exUnits?.withdraw)
+        .withdrawalRedeemerValue(
+          "",
+          "Mesh",
+          withdrawExUnits?.get(vaultRewardAddr),
+        )
         .requiredSignerHash(oracleInfo.ddKey)
-        .requiredSignerHash(oracleInfo.operatorKey);
+        .requiredSignerHash(oracleInfo.operatorKey)
+        .changeAddress(selectedUtxos[0]!.output.address);
 
       return txBuilder.complete();
     };
 
     const initialTxHex = await buildTx();
+
+    console.log("initialTxHex:", initialTxHex);
 
     const evaluator = new OfflineEvaluator(
       fetcher,
@@ -760,32 +768,48 @@ export class SwapIntentTx extends KhorTxBuilder {
       [],
     );
 
-    // Partition SPEND budgets: vault inputs appear before intent inputs in
-    // Cardano's canonical (txHash, index) input ordering — but we can't rely
-    // on that, so we conservatively use the max across all SPEND results for
-    // both vault and intent redeemers.
-    const exUnits = {
-      vaultSpend: { mem: 0, steps: 0 },
-      intentSpend: { mem: 0, steps: 0 },
-      withdraw: { mem: 0, steps: 0 },
+    // Map eval results back to specific redeemers using canonical sort order.
+    //
+    // SPEND: Cardano serializes inputs sorted by (txHash, outputIndex), so
+    // the eval result's `index` indexes into the sorted input list. We build
+    // a per-input exUnit map keyed by "txHash#outputIndex" so that each spend
+    // (vault or intent) gets its exact budget rather than a shared max.
+    //
+    // REWARD: Withdrawals are serialized as a CBOR map keyed by reward
+    // address bytes, ordered length-first then lexicographically. All reward
+    // addresses here are the same length (29 bytes), so a bytewise (hex) sort
+    // matches CBOR canonical order.
+    const sortedSpendInputs = [
+      ...selectedUtxos.map((u) => u.input),
+      ...sortedFills.map((f) => f.utxo.input),
+    ].sort((a, b) => {
+      const c = a.txHash.localeCompare(b.txHash);
+      return c !== 0 ? c : a.outputIndex - b.outputIndex;
+    });
+
+    const rewardAddrBytesHex = (addr: string): string => {
+      const bytes = csl.Address.from_bech32(addr).to_bytes();
+      return Buffer.from(bytes).toString("hex");
     };
+    const sortedWithdrawals = [swapIntentRewardAddr, vaultRewardAddr].sort(
+      (a, b) => rewardAddrBytesHex(a).localeCompare(rewardAddrBytesHex(b)),
+    );
+
+    const spendExUnits = new Map<string, { mem: number; steps: number }>();
+    const withdrawExUnits = new Map<string, { mem: number; steps: number }>();
+
     for (const result of evalResult) {
+      const budget = { mem: result.budget.mem, steps: result.budget.steps };
       if (result.tag === "SPEND") {
-        const maxed = {
-          mem: Math.max(exUnits.vaultSpend.mem, result.budget.mem),
-          steps: Math.max(exUnits.vaultSpend.steps, result.budget.steps),
-        };
-        exUnits.vaultSpend = maxed;
-        exUnits.intentSpend = maxed;
+        const ref = sortedSpendInputs[result.index];
+        if (ref) spendExUnits.set(spendKey(ref), budget);
       } else if (result.tag === "REWARD") {
-        exUnits.withdraw = {
-          mem: result.budget.mem,
-          steps: result.budget.steps,
-        };
+        const addr = sortedWithdrawals[result.index];
+        if (addr) withdrawExUnits.set(addr, budget);
       }
     }
 
-    const txHex = await buildTx(exUnits);
+    const txHex = await buildTx(spendExUnits, withdrawExUnits);
 
     const tx = csl.Transaction.from_hex(txHex);
     const totalFee = BigInt(tx.body().fee().to_str());
