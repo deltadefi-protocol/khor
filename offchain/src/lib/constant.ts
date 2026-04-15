@@ -9,7 +9,7 @@ export const preprodRefScriptTxHash =
   "1bc3529922ced72dfafdead3bb28fb8129fc90c78c35ff2245246e0cc0ab4688";
 export const preprodRefScriptOutputIndex = 0;
 export const preprodOracleUtxoTxHash =
-  "efee735f2bdd8f0ef6f5efb04794b2ecc1bc17a4c39473c4010138004baf97e2";
+  "8644cc4f31e42b6a510b7b4068d83094608df0725df7121658ae3519338d6b7d";
 export const preprodOracleUtxoOutputIndex = 0;
 
 // Mainnet constants
