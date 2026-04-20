@@ -19,7 +19,7 @@ export const mainnetRefScriptTxHash =
   "515ca6433f101d9a0eab871b4dde650f2524fca61d44065a2d421c178b281b88";
 export const mainnetRefScriptOutputIndex = 0;
 export const mainnetOracleUtxoTxHash =
-  "e099c4bafd0523e08238be2f48cd2f9a4994277693f2bbe5adb7f2db204b8219";
+  "c6efa13d0dacb5c71397c5c96abc33549ffed72fef7258c62427cf6d6e6a95e5";
 export const mainnetOracleUtxoOutputIndex = 0;
 
 // Preprod token units
