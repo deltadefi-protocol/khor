@@ -9,14 +9,17 @@ export const preprodRefScriptTxHash =
   "1bc3529922ced72dfafdead3bb28fb8129fc90c78c35ff2245246e0cc0ab4688";
 export const preprodRefScriptOutputIndex = 0;
 export const preprodOracleUtxoTxHash =
-  "2f9d8c8fa9407ef0c0c0f67224600fca9619299876f09db4f3b846e7a93dff48";
+  "8644cc4f31e42b6a510b7b4068d83094608df0725df7121658ae3519338d6b7d";
 export const preprodOracleUtxoOutputIndex = 0;
 
 // Mainnet constants
-export const mainnetOracleNftPolicyId = "280c66650be4af3d71e7817a517eca52377ab47bf87305d63093f52d";
-export const mainnetRefScriptTxHash = "515ca6433f101d9a0eab871b4dde650f2524fca61d44065a2d421c178b281b88";
+export const mainnetOracleNftPolicyId =
+  "280c66650be4af3d71e7817a517eca52377ab47bf87305d63093f52d";
+export const mainnetRefScriptTxHash =
+  "515ca6433f101d9a0eab871b4dde650f2524fca61d44065a2d421c178b281b88";
 export const mainnetRefScriptOutputIndex = 0;
-export const mainnetOracleUtxoTxHash = "e099c4bafd0523e08238be2f48cd2f9a4994277693f2bbe5adb7f2db204b8219";
+export const mainnetOracleUtxoTxHash =
+  "c6efa13d0dacb5c71397c5c96abc33549ffed72fef7258c62427cf6d6e6a95e5";
 export const mainnetOracleUtxoOutputIndex = 0;
 
 // Preprod token units

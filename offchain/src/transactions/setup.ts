@@ -1,5 +1,11 @@
-import { byteString, UTxO, outputReference } from "@meshsdk/core";
-import { KhorTxBuilder, TxParams } from "../lib/common";
+import { byteString, conStr0, UTxO, outputReference } from "@meshsdk/core";
+import {
+  KhorTxBuilder,
+  TxParams,
+  TxComplete,
+  extractSpentUtxos,
+  extractNewUtxos,
+} from "../lib/common";
 import { KhorConstants } from "../lib/constant";
 import {
   OracleNftMintBlueprint,
@@ -7,7 +13,12 @@ import {
   SwapIntentSpendBlueprint,
   SwapIntentWithdrawBlueprint,
 } from "../lib/bar";
-import { oracleDatum, OracleInfo, rMint } from "../lib/types";
+import {
+  oracleDatum,
+  OracleInfo,
+  parseVaultOracleDatum,
+  rMint,
+} from "../lib/types";
 
 export interface MintOracleNftParams extends TxParams {
   paramUtxo: UTxO;
@@ -19,6 +30,13 @@ export interface TxOutRefScriptsParams extends TxParams {
 }
 
 export interface RegisterCertsParams extends TxParams {}
+
+export interface UpdateOracleConfigParams extends TxParams {
+  oracleUtxo: UTxO;
+  newVaultScriptHash: string;
+  newIsVaultScript: boolean;
+  newSwapIntentScriptHash: string;
+}
 
 export class SetupTx extends KhorTxBuilder {
   constructor(config: KhorConstants) {
@@ -115,5 +133,62 @@ export class SetupTx extends KhorTxBuilder {
     txBuilder.registerStakeCertificate(swapIntentWithdraw.address);
 
     return txBuilder.complete();
+  };
+
+  /**
+   * Update oracle config - keeps operator_key and dd_key unchanged,
+   * updates only the vault credential and swap intent script hash.
+   * Output goes to the same oracle address with the same value.
+   * Requires both operator and dd signatures.
+   */
+  updateOracleConfig = async (
+    params: UpdateOracleConfigParams,
+    fetcher?: any,
+  ): Promise<TxComplete> => {
+    const currentInfo = parseVaultOracleDatum(params.oracleUtxo);
+    if (!currentInfo) {
+      throw new Error("Invalid oracle UTxO");
+    }
+
+    const oracleNftPolicyId = this.config.oracleNftPolicyId;
+    const oracleSpend = new SwapOracleSpendBlueprint(this.config.networkId, [
+      byteString(oracleNftPolicyId),
+    ]);
+
+    const newDatum = oracleDatum({
+      vaultScriptHash: params.newVaultScriptHash,
+      isVaultScript: params.newIsVaultScript,
+      swapIntentScriptHash: params.newSwapIntentScriptHash,
+      operatorKey: currentInfo.operatorKey,
+      ddKey: currentInfo.ddKey,
+    });
+
+    const txBuilder = this.newValidationTx(params, fetcher);
+
+    txBuilder
+      .spendingPlutusScriptV3()
+      .txIn(
+        params.oracleUtxo.input.txHash,
+        params.oracleUtxo.input.outputIndex,
+        params.oracleUtxo.output.amount,
+        params.oracleUtxo.output.address,
+        0,
+      )
+      .txInInlineDatumPresent()
+      .txInRedeemerValue(conStr0([]), "JSON")
+      .txInScript(oracleSpend.cbor)
+      .inputForEvaluation(params.oracleUtxo)
+      .txOut(params.oracleUtxo.output.address, params.oracleUtxo.output.amount)
+      .txOutInlineDatumValue(newDatum, "JSON")
+      .requiredSignerHash(currentInfo.operatorKey)
+      .requiredSignerHash(currentInfo.ddKey);
+
+    const txHex = await txBuilder.complete();
+
+    return {
+      txHex,
+      spentUtxos: extractSpentUtxos(txHex),
+      newUtxos: extractNewUtxos(txHex),
+    };
   };
 }

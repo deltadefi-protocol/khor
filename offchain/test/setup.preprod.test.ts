@@ -1,22 +1,24 @@
 import {
   BlockfrostProvider,
   MeshWallet,
+  UTxO,
   byteString,
   outputReference,
 } from "@meshsdk/core";
 import { SetupTx } from "../src/transactions/setup";
 import { KhorConstants, Network } from "../src/lib/constant";
-import { OracleInfo } from "../src/lib/types";
+import { OracleInfo, parseVaultOracleDatum } from "../src/lib/types";
 import {
   OracleNftMintBlueprint,
   SwapIntentSpendBlueprint,
+  SwapOracleSpendBlueprint,
 } from "../src/lib/bar";
 
 // Skip tests if env vars not set
 const BLOCKFROST_API_KEY = process.env.BLOCKFROST_API_KEY;
 const NETWORK = (process.env.NETWORK || "preprod") as Network;
 const NETWORK_ID = NETWORK === "mainnet" ? 1 : 0;
-const DD_VKEY = process.env.DD_VKEY;
+const OWNER_VKEY = process.env.OWNER_VKEY;
 const OPERATOR_VKEY = process.env.OPERATOR_VKEY;
 
 const describeIfConfigured = BLOCKFROST_API_KEY ? describe : describe.skip;
@@ -29,8 +31,7 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
   beforeAll(async () => {
     blockfrost = new BlockfrostProvider(BLOCKFROST_API_KEY!);
 
-    const walletMnemonic = process.env.TEST_WALLET_MNEMONIC;
-    console.log(walletMnemonic);
+    const walletMnemonic = process.env.TEST_OPERATOR_MNEMONIC;
 
     if (!walletMnemonic) {
       throw new Error("TEST_WALLET_MNEMONIC environment variable required");
@@ -55,13 +56,13 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
 
   describe("mintOracleNft", () => {
     it("should mint oracle NFT and create oracle UTxO", async () => {
-      if (!DD_VKEY || !OPERATOR_VKEY) {
-        console.log("DD_VKEY or OPERATOR_VKEY not set - skipping");
+      if (!OWNER_VKEY || !OPERATOR_VKEY) {
+        console.log("OWNER_VKEY or OPERATOR_VKEY not set - skipping");
         return;
       }
 
-      const utxos = await wallet.getUtxos();
-      const collateral = await wallet.getCollateral();
+      const utxos = await wallet.getUtxos("payment");
+      const collateral = await wallet.getCollateral("enterprise");
 
       if (utxos.length === 0) {
         throw new Error("No UTxOs available in test wallet");
@@ -94,7 +95,7 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
         isVaultScript: false,
         swapIntentScriptHash: swapIntentSpend.hash,
         operatorKey: OPERATOR_VKEY,
-        ddKey: DD_VKEY,
+        ddKey: OWNER_VKEY,
       };
 
       const params = {
@@ -107,7 +108,7 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
 
       console.log("Building mintOracleNft transaction...");
       console.log("Using paramUtxo:", paramUtxo!.input);
-      console.log("DD_VKEY:", DD_VKEY);
+      console.log("OWNER_VKEY:", OWNER_VKEY);
       console.log("OPERATOR_VKEY:", OPERATOR_VKEY);
 
       const result = await setupTx.mintOracleNft(params, blockfrost);
@@ -138,8 +139,8 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
         return;
       }
 
-      const utxos = await wallet.getUtxos();
-      const collateral = await wallet.getCollateral();
+      const utxos = await wallet.getUtxos("payment");
+      const collateral = await wallet.getCollateral("enterprise");
 
       if (!collateral || collateral.length === 0) {
         throw new Error("No collateral set in test wallet");
@@ -187,8 +188,8 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
         return;
       }
 
-      const utxos = await wallet.getUtxos();
-      const collateral = await wallet.getCollateral();
+      const utxos = await wallet.getUtxos("payment");
+      const collateral = await wallet.getCollateral("enterprise");
 
       if (!collateral || collateral.length === 0) {
         throw new Error("No collateral set in test wallet");
@@ -220,6 +221,110 @@ describeIfConfigured(`SetupTx (${NETWORK})`, () => {
 
       // Uncomment to submit:
       const txHash = await wallet.submitTx(signedTx);
+      console.log("Submitted tx:", txHash);
+    }, 120000);
+  });
+
+  describe("updateOracleConfig", () => {
+    it("should update oracle vault cred and swap intent script hash", async () => {
+      const oracleNftPolicyId = process.env.ORACLE_NFT_POLICY_ID;
+      if (!oracleNftPolicyId) {
+        console.log("ORACLE_NFT_POLICY_ID not set - skipping");
+        return;
+      }
+
+      const utxos = await wallet.getUtxos("payment");
+      const collateral = await wallet.getCollateral("enterprise");
+
+      if (!collateral || collateral.length === 0) {
+        throw new Error("No collateral set in test wallet");
+      }
+      const collateralUtxo = collateral[0]!;
+
+      const config = new KhorConstants(NETWORK);
+      config.oracleNftPolicyId = oracleNftPolicyId;
+
+      const setupTx = new SetupTx(config);
+
+      // Fetch oracle UTxO (holds the oracle NFT)
+      const oracleSpend = new SwapOracleSpendBlueprint(NETWORK_ID, [
+        byteString(oracleNftPolicyId),
+      ]);
+      const oracleAddress = oracleSpend.address;
+
+      const oracleUtxos = await blockfrost.fetchAddressUTxOs(
+        oracleAddress,
+        oracleNftPolicyId,
+      );
+
+      if (oracleUtxos.length === 0) {
+        throw new Error("No oracle UTxO found");
+      }
+      const oracleUtxo: UTxO = oracleUtxos[0]!;
+      console.log("Oracle UTxO:", oracleUtxo.input);
+
+      const currentInfo = parseVaultOracleDatum(oracleUtxo);
+      if (!currentInfo) {
+        throw new Error("Failed to parse current oracle datum");
+      }
+      console.log("Current oracle info:", currentInfo);
+
+      // New swap intent script hash derived from current policy id (same in this test)
+      const swapIntentSpend = new SwapIntentSpendBlueprint(NETWORK_ID, [
+        byteString(oracleNftPolicyId),
+      ]);
+
+      // Allow overrides via env; defaults keep operator vault cred, rotate swap intent
+      const newVaultScriptHash =
+        process.env.NEW_VAULT_SCRIPT_HASH ?? currentInfo.vaultScriptHash;
+      const newIsVaultScript =
+        process.env.NEW_IS_VAULT_SCRIPT !== undefined
+          ? process.env.NEW_IS_VAULT_SCRIPT === "true"
+          : currentInfo.isVaultScript;
+      const newSwapIntentScriptHash =
+        process.env.NEW_SWAP_INTENT_SCRIPT_HASH ?? swapIntentSpend.hash;
+
+      const params = {
+        utxos,
+        collateral: collateralUtxo,
+        changeAddress: walletAddress,
+        oracleUtxo,
+        newVaultScriptHash,
+        newIsVaultScript,
+        newSwapIntentScriptHash,
+      };
+
+      console.log("Building updateOracleConfig transaction...");
+      console.log("New vaultScriptHash:", newVaultScriptHash);
+      console.log("New isVaultScript:", newIsVaultScript);
+      console.log("New swapIntentScriptHash:", newSwapIntentScriptHash);
+
+      const result = await setupTx.updateOracleConfig(params, blockfrost);
+
+      console.log("txHex length:", result.txHex.length);
+      expect(result.txHex).toBeDefined();
+      expect(result.txHex.length).toBeGreaterThan(0);
+
+      // Sign with test wallet (must hold both operator and dd keys, or sign
+      // externally — otherwise the submitted tx will fail signature checks).
+      const signedTx = await wallet.signTx(result.txHex, true);
+      console.log("Transaction signed successfully");
+
+      // Uncomment to submit:
+
+      const ddWalletMnemonic = process.env.TEST_DD_MNEMONIC!;
+
+      const ddWallet = new MeshWallet({
+        networkId: NETWORK_ID,
+        fetcher: blockfrost,
+        submitter: blockfrost,
+        key: {
+          type: "mnemonic",
+          words: ddWalletMnemonic.split(" "),
+        },
+      });
+      const fullySignedTx = await ddWallet.signTx(signedTx, true);
+      const txHash = await ddWallet.submitTx(fullySignedTx);
       console.log("Submitted tx:", txHash);
     }, 120000);
   });
