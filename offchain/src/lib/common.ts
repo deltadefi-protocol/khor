@@ -120,8 +120,23 @@ export class KhorTxBuilder {
     params: TxParams,
     fetcher?: any,
     evaluateTx = true,
+    feePaidByScript = false,
   ): MeshTxBuilder => {
     const txBuilder = this.newTxBuilder(evaluateTx, fetcher);
+
+    if (feePaidByScript) {
+      txBuilder
+        .txInCollateral(
+          params.collateral.input.txHash,
+          params.collateral.input.outputIndex,
+          params.collateral.output.amount,
+          params.collateral.output.address,
+        )
+        .setTotalCollateral("3000000")
+        .changeAddress(params.changeAddress);
+
+      return txBuilder;
+    }
 
     if (params.utxos.length === 0) {
       throw new Error("No UTxOs available for transaction");
