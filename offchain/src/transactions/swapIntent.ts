@@ -8,7 +8,6 @@ import {
   UTxO,
   TxInput,
   SLOT_CONFIG_NETWORK,
-  BlockfrostProvider,
 } from "@meshsdk/core";
 import {
   KhorTxBuilder,
