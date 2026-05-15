@@ -98,7 +98,7 @@ export class KhorTxBuilder {
 
   newTxBuilder = (evaluateTx = true, fetcher?: any): MeshTxBuilder => {
     const txBuilderConfig: MeshTxBuilderOptions = {
-      verbose: false,
+      verbose: true,
     };
 
     if (fetcher) {

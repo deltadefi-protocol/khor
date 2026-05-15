@@ -749,24 +749,7 @@ export class SwapIntentTx extends KhorTxBuilder {
 
     console.log("initialTxHex:", initialTxHex);
 
-    const evaluator = new OfflineEvaluator(
-      fetcher,
-      this.config.networkId === 0 ? "preprod" : "mainnet",
-    );
-
-    const additionalUtxos: UTxO[] = [
-      ...params.utxos,
-      params.oracleUtxo,
-      params.vaultAggregatorOracleUtxo,
-      ...sortedFills.map((f) => f.utxo),
-      ...selectedUtxos,
-    ];
-
-    const evalResult = await evaluator.evaluateTx(
-      initialTxHex,
-      additionalUtxos,
-      [],
-    );
+    const evalResult = await fetcher.evaluateTx(initialTxHex, undefined, []);
 
     // Map eval results back to specific redeemers using canonical sort order.
     //
