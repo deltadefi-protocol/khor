@@ -1,6 +1,6 @@
 {
   "name": "@deltadefi-protocol/khor",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Khor transaction builder for Cardano L1 arbitrage swap protocol",
   "main": "./dist/index.cjs",
   "browser": "./dist/index.js",
@@ -77,9 +77,9 @@
   "author": "DeltaDeFi",
   "license": "Apache-2.0",
   "dependencies": {
-    "@meshsdk/core": "1.9.0-beta.101",
-    "@meshsdk/core-csl": "1.9.0-beta.101",
-    "@meshsdk/core-cst": "1.9.0-beta.101"
+    "@meshsdk/core": "1.9.0-beta.103",
+    "@meshsdk/core-csl": "1.9.0-beta.103",
+    "@meshsdk/core-cst": "1.9.0-beta.103"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
