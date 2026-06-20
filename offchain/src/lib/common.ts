@@ -111,6 +111,11 @@ export class KhorTxBuilder {
     }
 
     const txBuilder = new MeshTxBuilder(txBuilderConfig);
+
+    if (evaluateTx && fetcher) {
+      txBuilder.txEvaluationMultiplier = 1.1;
+    }
+
     txBuilder.setNetwork(this.config.networkId === 1 ? "mainnet" : "preprod");
 
     return txBuilder;
